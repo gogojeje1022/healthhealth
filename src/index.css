@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  /* Galaxy S24 safe area */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  font-feature-settings: "tnum" on;
+}
+
+/* 모바일 입력 폼 줌 방지 (iOS) */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* 스크롤바 스타일 (데스크톱) */
+@media (hover: hover) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* 공용 컴포넌트 */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium
+           transition-all active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-400 disabled:bg-brand-700;
+  }
+  .btn-secondary {
+    @apply btn bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700;
+  }
+  .btn-ghost {
+    @apply btn text-slate-300 hover:bg-slate-800/50;
+  }
+  .card {
+    @apply rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur;
+  }
+  .input {
+    @apply w-full rounded-xl bg-slate-900 border border-slate-800 px-4 py-3
+           text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+}
+
+/* 사용자 색상 (avatar) */
+.avatar-ring {
+  background: conic-gradient(
+    var(--ring-color, #10b981) calc(var(--ring-pct, 0) * 1%),
+    rgba(255, 255, 255, 0.08) 0
+  );
+}
