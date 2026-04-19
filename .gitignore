@@ -27,3 +27,6 @@ pnpm-debug.log*
 
 # PWA
 dev-dist
+
+# TS incremental build cache
+*.tsbuildinfo
