@@ -21,7 +21,8 @@ import {
 import HealthScoreRing from "../components/HealthScoreRing";
 import PhotoUpload from "../components/PhotoUpload";
 import UserSelector from "../components/UserSelector";
-import { blobUrl, dateKey, formatKoDate } from "../lib/utils";
+import { blobUrl } from "../lib/image";
+import { dateKey, formatKoDate } from "../lib/utils";
 
 export default function HealthPage() {
   const settings = useLiveQuery(() => getSettings(), []);

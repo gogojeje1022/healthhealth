@@ -23,7 +23,8 @@ import {
 } from "../types";
 import PhotoUpload from "../components/PhotoUpload";
 import UserSelector from "../components/UserSelector";
-import { blobUrl, cls, formatKoDate } from "../lib/utils";
+import { blobUrl } from "../lib/image";
+import { cls, formatKoDate } from "../lib/utils";
 
 export default function DayPage() {
   const { date = "" } = useParams();
