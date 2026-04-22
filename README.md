@@ -33,20 +33,35 @@ npm run dev
 
 ## ☁️ GitHub Pages 배포 (무료)
 
+이미 `.github/workflows/deploy.yml` 이 있어서, **저장소만 만들고 푸시 + Pages 소스 한 번 지정**하면 됩니다.
+
 ### 자동 배포 설정 (1회)
 
-1. 이 프로젝트를 GitHub 저장소에 푸시.
+1. **GitHub에서 새 저장소**를 만듭니다. (이름이 곧 URL 경로가 됩니다. 예: 저장소 `healthhealth` → `https://<아이디>.github.io/healthhealth/`)
+   - 이미 로컬에 Git이 있다면 README/라이선스만 있는 저장소를 만들 때 **“Add a README” 체크는 끄는 것**이 푸시할 때 덜 헷갈립니다.
+
+2. **원격 저장소 연결 후 `main` 브랜치로 푸시**합니다. (PowerShell에서 `npm` 대신 `npm.cmd`를 쓰는 환경이면 그대로 두고, 아래는 Git만 해당합니다.)
+
    ```bash
-   git init
-   git add .
-   git commit -m "init: 헬스헬스 1차 완성본"
    git branch -M main
    git remote add origin https://github.com/<YOUR_ID>/<REPO_NAME>.git
+   git add .
+   git commit -m "chore: GitHub Pages 배포용 푸시"
    git push -u origin main
    ```
-2. GitHub 저장소 → **Settings → Pages → Build and deployment → Source** 를 **GitHub Actions** 로 변경.
-3. 끝! 푸시할 때마다 `.github/workflows/deploy.yml` 이 자동으로 빌드 & 배포합니다.
-   배포 URL: `https://<YOUR_ID>.github.io/<REPO_NAME>/`
+
+   아직 `git init`을 안 했다면 프로젝트 폴더에서 한 번만 `git init` 후 커밋·푸시하면 됩니다.
+
+3. GitHub 웹에서 해당 저장소 → **Settings → Pages → Build and deployment → Source** 를 **Deploy from a branch** 가 아니라 **GitHub Actions** 로 바꿉니다.
+
+4. **Actions** 탭을 열어 **“Deploy to GitHub Pages”** 워크플로가 초록색으로 끝났는지 확인합니다.  
+   처음 한 번 **“Approve and deploy”** / 환경(`github-pages`) 승인을 요구하면 승인합니다.
+
+5. 같은 **Settings → Pages** 에서 **Visit site** 또는 표시된 URL로 접속합니다.  
+   배포 반영까지 **1~3분** 걸릴 수 있습니다.
+
+이후에는 **`main`에 푸시할 때마다** 같은 워크플로가 빌드 후 자동 배포합니다.  
+배포 URL 형태: `https://<YOUR_ID>.github.io/<REPO_NAME>/` (저장소가 `<USER>.github.io` 특수 저장소면 루트 `/` 로 빌드됩니다.)
 
 ### base path 자동 처리
 

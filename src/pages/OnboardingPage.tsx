@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { db, patchSettings, uid } from "../lib/db";
 import { nextColor } from "../lib/utils";
 
@@ -11,7 +10,6 @@ interface DraftUser {
 }
 
 export default function OnboardingPage() {
-  const navigate = useNavigate();
   const [members, setMembers] = useState<DraftUser[]>([
     { id: uid(), name: "", color: nextColor([]) },
   ]);
@@ -54,7 +52,16 @@ export default function OnboardingPage() {
         activeUserId: valid[0].id,
         geminiApiKey: apiKey.trim() || undefined,
       });
-      navigate("/", { replace: true });
+      // SPA navigate 만으로는 라이브 쿼리/해시 라우터 타이밍이 어긋날 수 있어,
+      // 온보딩 직후에는 앱 루트로 한 번 이동해 상태를 확실히 맞춘다.
+      window.location.replace(`${window.location.origin}${import.meta.env.BASE_URL}#/`);
+    } catch (e) {
+      console.error(e);
+      alert(
+        e instanceof Error
+          ? `저장에 실패했습니다: ${e.message}`
+          : "저장에 실패했습니다. 사이트 데이터(IndexedDB) 저장이 막혀 있지 않은지 확인해 주세요.",
+      );
     } finally {
       setBusy(false);
     }
@@ -156,12 +163,12 @@ export default function OnboardingPage() {
       </section>
 
       <button
-        onClick={finish}
+        type="button"
+        onClick={() => void finish()}
         disabled={busy}
         className="btn-primary mt-auto w-full py-4 text-base"
       >
         {busy ? "준비 중…" : "시작하기"}
-        <X className="hidden" />
       </button>
     </div>
   );

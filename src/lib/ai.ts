@@ -4,12 +4,24 @@
  * - 식단 사진 분석, 건강검진/인바디 OCR + 점수화에 사용
  *
  * Gemini Free Tier:
- *   gemini-2.0-flash 등 무료 사용량 충분 (개인/가족용으로 매우 여유)
+ *   모델/일별·분당 한도는 Google 정책에 따라 변동됩니다. 429면 한도 초과입니다.
  */
 import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { blobToBase64 } from "./image";
 
 const DEFAULT_MODEL = "gemini-2.0-flash";
+
+/** 429 등 Google 쿼터/속도 제한 시 사용자 안내 */
+function formatGeminiFailure(prefix: string, e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  const quota =
+    /\b429\b/.test(raw) ||
+    /quota|rate limit|exceeded your current quota/i.test(raw);
+  if (quota) {
+    return `${prefix}: Google API 무료(또는 현재 요금제) 한도를 넘었습니다(429). 몇 분~몇 시간 뒤 다시 시도하거나, 설정에서 모델을 gemini-2.0-flash-lite 등으로 바꿔 보세요. 사용량: https://ai.dev/rate-limit · 한도 안내: https://ai.google.dev/gemini-api/docs/rate-limits`;
+  }
+  return `${prefix}: ${raw}`;
+}
 
 export class AIError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -116,10 +128,7 @@ export async function analyzeMealImage(
     return parsed;
   } catch (e) {
     if (e instanceof AIError) throw e;
-    throw new AIError(
-      e instanceof Error ? `식단 분석 실패: ${e.message}` : "식단 분석 실패",
-      e,
-    );
+    throw new AIError(formatGeminiFailure("식단 분석 실패", e), e);
   }
 }
 
@@ -197,10 +206,7 @@ export async function analyzeHealthImage(
     return parsed;
   } catch (e) {
     if (e instanceof AIError) throw e;
-    throw new AIError(
-      e instanceof Error ? `건강기록 분석 실패: ${e.message}` : "건강기록 분석 실패",
-      e,
-    );
+    throw new AIError(formatGeminiFailure("건강기록 분석 실패", e), e);
   }
 }
 
@@ -210,7 +216,11 @@ export async function pingGemini(apiKey: string, modelName?: string): Promise<vo
   const m = new GoogleGenerativeAI(apiKey).getGenerativeModel({
     model: modelName || DEFAULT_MODEL,
   });
-  // 가장 가벼운 호출
-  const r = await m.generateContent("ping");
-  if (!r.response.text) throw new AIError("응답이 비어있습니다.");
+  try {
+    const r = await m.generateContent("ping");
+    if (!r.response.text) throw new AIError("응답이 비어있습니다.");
+  } catch (e) {
+    if (e instanceof AIError) throw e;
+    throw new AIError(formatGeminiFailure("API 키 확인 실패", e), e);
+  }
 }

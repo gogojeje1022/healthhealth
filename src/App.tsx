@@ -11,19 +11,26 @@ import BottomNav from "./components/BottomNav";
 
 export default function App() {
   const location = useLocation();
-  const settings = useLiveQuery(() => getSettings(), []);
-  const userCount = useLiveQuery(() => db.users.count(), []);
+  // settings / userCount 를 분리 쿼리하면 커밋 직후 한 프레임만 어긋나도
+  // 온보딩 직후 홈 ↔ 온보딩 리다이렉트가 꼬일 수 있어 한 스냅샷으로 읽는다.
+  const gate = useLiveQuery(
+    async () => ({
+      settings: await getSettings(),
+      userCount: await db.users.count(),
+    }),
+    [],
+  );
 
   // 활성 사용자가 사라진 경우 자동 정리
   useEffect(() => {
-    if (!settings?.activeUserId) return;
-    db.users.get(settings.activeUserId).then((u) => {
+    if (!gate?.settings.activeUserId) return;
+    db.users.get(gate.settings.activeUserId).then((u) => {
       if (!u) patchSettings({ activeUserId: undefined });
     });
-  }, [settings?.activeUserId]);
+  }, [gate?.settings.activeUserId]);
 
   // 데이터 로딩 중
-  if (settings === undefined || userCount === undefined) {
+  if (gate === undefined) {
     return (
       <div className="flex h-full items-center justify-center text-slate-500">
         로딩 중…
@@ -31,8 +38,13 @@ export default function App() {
     );
   }
 
+  const { settings, userCount } = gate;
   const needsOnboarding = !settings.onboarded || userCount === 0;
   const isOnboardingRoute = location.pathname.startsWith("/onboarding");
+
+  if (!needsOnboarding && isOnboardingRoute) {
+    return <Navigate to="/" replace />;
+  }
 
   if (needsOnboarding && !isOnboardingRoute) {
     return <Navigate to="/onboarding" replace />;
