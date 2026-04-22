@@ -21,7 +21,8 @@ export default function SettingsPage() {
   const users = useLiveQuery(() => db.users.orderBy("createdAt").toArray(), []);
 
   const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("gemini-2.0-flash");
+  const [apiKeyBackup, setApiKeyBackup] = useState("");
+  const [model, setModel] = useState("gemini-2.0-flash-lite");
   const [show, setShow] = useState(false);
   const [pingState, setPingState] = useState<
     | { kind: "idle" }
@@ -32,12 +33,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (settings?.geminiApiKey) setApiKey(settings.geminiApiKey);
+    if (settings?.geminiApiKeyBackup !== undefined) {
+      setApiKeyBackup(settings.geminiApiKeyBackup ?? "");
+    }
     if (settings?.model) setModel(settings.model);
-  }, [settings?.geminiApiKey, settings?.model]);
+  }, [settings?.geminiApiKey, settings?.geminiApiKeyBackup, settings?.model]);
 
   async function saveKey() {
     await patchSettings({
       geminiApiKey: apiKey.trim() || undefined,
+      geminiApiKeyBackup: apiKeyBackup.trim() || undefined,
       model: model.trim() || undefined,
     });
     setPingState({ kind: "idle" });
@@ -45,7 +50,11 @@ export default function SettingsPage() {
   async function testKey() {
     setPingState({ kind: "busy" });
     try {
-      await pingGemini(apiKey.trim(), model.trim() || undefined);
+      await pingGemini(
+        apiKey.trim(),
+        model.trim() || undefined,
+        apiKeyBackup.trim() || undefined,
+      );
       setPingState({ kind: "ok" });
     } catch (e) {
       setPingState({
@@ -160,17 +169,42 @@ export default function SettingsPage() {
           </div>
 
           <div>
+            <label className="mb-1 block text-xs text-slate-400">
+              대체 API 키 <span className="text-slate-600">(선택)</span>
+            </label>
+            <input
+              type={show ? "text" : "password"}
+              value={apiKeyBackup}
+              onChange={(e) => setApiKeyBackup(e.target.value)}
+              placeholder="주 키가 429 한도일 때만 자동 사용"
+              className="input"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+              다른 Google Cloud 프로젝트에서 발급한 키를 넣으면, 무료 한도가 다른 풀을 쓸 수 있습니다. Google
+              이용약관을 지켜 주세요.
+            </p>
+          </div>
+
+          <div>
             <label className="mb-1 block text-xs text-slate-400">모델</label>
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
               className="input"
             >
-              <option value="gemini-2.0-flash">gemini-2.0-flash (빠름, 무료)</option>
-              <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+              <option value="gemini-2.0-flash-lite">
+                gemini-2.0-flash-lite (기본 · 무료 한도에 유리)
+              </option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash (더 정교, 한도 빨리 찰 수 있음)</option>
               <option value="gemini-1.5-flash">gemini-1.5-flash</option>
               <option value="gemini-1.5-pro">gemini-1.5-pro (고급)</option>
             </select>
+            <p className="mt-1 text-[11px] text-slate-500">
+              무료 API는 Google 정책·모델별로 한도가 다릅니다. 429가 나오면 잠시 후 재시도하거나 대체 키·다른 모델을
+              써 보세요.
+            </p>
           </div>
 
           <div className="flex gap-2">

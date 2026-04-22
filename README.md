@@ -29,7 +29,7 @@ npm run dev
 2. **Create API key** 클릭 → 새 프로젝트 선택 → 키 복사
 3. 앱 첫 실행 시 온보딩 화면 또는 **설정 → Gemini API 키** 에 붙여넣고 저장
 
-> Gemini 2.0 Flash 무료 한도: **분당 15회, 일일 1,500회** — 가족 4명이 매끼 찍어도 충분합니다.
+> 기본 모델은 **gemini-2.0-flash-lite** (무료 티어에서 상대적으로 한도 여유). Google 정책에 따라 수치는 변동됩니다.
 
 ## ☁️ GitHub Pages 배포 (무료)
 

@@ -95,6 +95,7 @@ export default function DayPage() {
             userId={userId}
             meal={mealsBySlot.get(slot)}
             apiKey={settings?.geminiApiKey}
+            apiKeyBackup={settings?.geminiApiKeyBackup}
             modelName={settings?.model}
           />
         ))}
@@ -108,10 +109,11 @@ interface SlotProps {
   userId: string;
   meal?: Meal;
   apiKey?: string;
+  apiKeyBackup?: string;
   modelName?: string;
 }
 
-function SlotSection({ slot, date, userId, meal, apiKey, modelName }: SlotProps) {
+function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName }: SlotProps) {
   const sectionRef = useRef<HTMLElement>(null);
 
   // 해시(#breakfast 등) 자동 스크롤
@@ -146,7 +148,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, modelName }: SlotProps)
         };
     await db.meals.put(base);
     if (apiKey) {
-      runAnalysis(id, photo, apiKey, modelName);
+      runAnalysis(id, photo, apiKey, modelName, apiKeyBackup);
     }
   }
 
@@ -155,9 +157,10 @@ function SlotSection({ slot, date, userId, meal, apiKey, modelName }: SlotProps)
     photo: Blob,
     key: string,
     model?: string,
+    backupKey?: string,
   ) {
     try {
-      const result = await analyzeMealImage(key, photo, model);
+      const result = await analyzeMealImage(key, photo, model, backupKey);
       const cur = await db.meals.get(id);
       if (!cur) return;
       await db.meals.put({
@@ -190,7 +193,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, modelName }: SlotProps)
       analysisError: undefined,
       updatedAt: Date.now(),
     });
-    runAnalysis(meal.id, meal.photo, apiKey, modelName);
+    runAnalysis(meal.id, meal.photo, apiKey, modelName, apiKeyBackup);
   }
 
   async function removeMeal() {
