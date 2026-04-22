@@ -40,7 +40,10 @@ npm run dev
 1. **GitHub에서 새 저장소**를 만듭니다. (이름이 곧 URL 경로가 됩니다. 예: 저장소 `healthhealth` → `https://<아이디>.github.io/healthhealth/`)
    - 이미 로컬에 Git이 있다면 README/라이선스만 있는 저장소를 만들 때 **“Add a README” 체크는 끄는 것**이 푸시할 때 덜 헷갈립니다.
 
-2. **원격 저장소 연결 후 `main` 브랜치로 푸시**합니다. (PowerShell에서 `npm` 대신 `npm.cmd`를 쓰는 환경이면 그대로 두고, 아래는 Git만 해당합니다.)
+2. **반드시 먼저:** GitHub 웹에서 해당 저장소 → **Settings → Pages → Build and deployment → Source** 를 **GitHub Actions** 로 바꿉니다.  
+   (이걸 하지 않으면 GitHub에 “Pages 사이트”가 없어서, 예전 워크플로의 `configure-pages` 단계가 404로 실패할 수 있습니다. 지금 워크플로에서는 해당 단계를 제거했지만, **실제 사이트 배포를 위해 이 설정은 여전히 필수**입니다.)
+
+3. **원격 저장소 연결 후 `main` 브랜치로 푸시**합니다. (PowerShell에서 `npm` 대신 `npm.cmd`를 쓰는 환경이면 그대로 두고, 아래는 Git만 해당합니다.)
 
    ```bash
    git branch -M main
@@ -51,8 +54,6 @@ npm run dev
    ```
 
    아직 `git init`을 안 했다면 프로젝트 폴더에서 한 번만 `git init` 후 커밋·푸시하면 됩니다.
-
-3. GitHub 웹에서 해당 저장소 → **Settings → Pages → Build and deployment → Source** 를 **Deploy from a branch** 가 아니라 **GitHub Actions** 로 바꿉니다.
 
 4. **Actions** 탭을 열어 **“Deploy to GitHub Pages”** 워크플로가 초록색으로 끝났는지 확인합니다.  
    처음 한 번 **“Approve and deploy”** / 환경(`github-pages`) 승인을 요구하면 승인합니다.
