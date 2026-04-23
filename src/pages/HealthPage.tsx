@@ -157,7 +157,7 @@ export default function HealthPage() {
         <div className="flex-1">
           <p className="text-xs text-slate-400">최근 건강 평가</p>
           <h2 className="mt-0.5 text-base font-semibold leading-tight text-slate-100">
-            {latest?.summary ?? "아직 평가 결과가 없어요. 검진표나 인바디 사진을 올려보세요."}
+            {latest?.summary ?? "검진·인바디 사진을 올려 보세요."}
           </h2>
           {latest && (
             <p className="mt-1 text-xs text-slate-500">
@@ -197,7 +197,7 @@ export default function HealthPage() {
             to="/settings"
             className="mt-3 block rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-2 text-xs text-slate-400"
           >
-            AI 분석·점수는 설정에서 키를 저장한 뒤 사용할 수 있어요.
+            AI 분석은 설정에 Gemini 키가 필요합니다.
           </Link>
         )}
       </section>

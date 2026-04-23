@@ -66,18 +66,13 @@ export default function DayPage() {
       <UserSelector />
 
       {!settings?.geminiApiKey && (
-        <Link
-          to="/settings"
-          className="card border-slate-700 bg-slate-900/40 px-4 py-3 text-xs text-slate-400"
-        >
-          AI 분석은 설정에서 키를 저장한 뒤 사용할 수 있어요. 사진만 올리는 것은 그대로 가능합니다.
+        <Link to="/settings" className="card border-slate-700 bg-slate-900/40 px-4 py-3 text-xs text-slate-400">
+          AI 분석은 설정에 Gemini 키가 필요합니다.
         </Link>
       )}
 
       {!userId && (
-        <div className="card p-4 text-center text-sm text-slate-400">
-          상단에서 사용자를 선택해주세요.
-        </div>
+        <div className="card p-4 text-center text-sm text-slate-400">사용자를 선택하세요.</div>
       )}
 
       {!validDate && (

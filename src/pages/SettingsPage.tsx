@@ -167,32 +167,15 @@ export default function SettingsPage() {
         </h2>
 
         {!firebaseReady ? (
-          <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs leading-relaxed text-amber-100/95">
-            <p className="font-medium text-amber-50">Firebase가 이 빌드에 포함되어 있지 않습니다</p>
-            <p>
-              GitHub Pages 등 배포본은 <strong>빌드할 때</strong> 환경 변수가 들어가야 합니다. 로컬{" "}
-              <code className="rounded bg-black/20 px-1">.env.local</code>만으로는 사이트에 반영되지 않아요.
-            </p>
-            <p>
-              저장소{" "}
-              <strong className="text-amber-50">Settings → Secrets and variables → Actions</strong>에 아래 이름으로
-              값을 추가한 뒤, <strong className="text-amber-50">main</strong> 푸시 또는 Actions에서 워크플로를 다시
-              실행하세요.
-            </p>
-            <ul className="list-inside list-disc space-y-0.5 font-mono text-[11px] text-amber-200/90">
-              <li>VITE_FIREBASE_API_KEY</li>
-              <li>VITE_FIREBASE_AUTH_DOMAIN</li>
-              <li>VITE_FIREBASE_PROJECT_ID</li>
-              <li>VITE_FIREBASE_MESSAGING_SENDER_ID</li>
-              <li>VITE_FIREBASE_APP_ID</li>
-              <li className="list-none pl-4 text-amber-200/70">(선택) VITE_FIREBASE_STORAGE_BUCKET</li>
-            </ul>
-          </div>
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
+            Firebase가 빌드에 없습니다. 배포 시 GitHub Actions Secrets에{" "}
+            <code className="rounded bg-black/20 px-1">VITE_FIREBASE_*</code>를 넣고 다시 빌드하세요.
+          </p>
         ) : null}
 
         {firebaseReady && authLoading && (
           <p className="flex items-center gap-2 text-xs text-slate-400">
-            <Loader2 size={14} className="animate-spin" /> 로그인 상태 확인 중…
+            <Loader2 size={14} className="animate-spin" /> 확인 중…
           </p>
         )}
 
@@ -215,11 +198,6 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
-            <p className="text-[11px] text-slate-500">
-              팝업이 안 뜨면 브라우저에서 팝업 허용. 문제가 계속되면 Firebase에 이 도메인(
-              <code className="text-slate-400">{typeof window !== "undefined" ? window.location.hostname : "…"}</code>
-              )을 승인해 주세요.
-            </p>
           </div>
         )}
 
@@ -235,9 +213,6 @@ export default function SettingsPage() {
                 <LogOut size={14} /> 로그아웃
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">
-              로그인한 상태에서 기록을 바꾸면 잠시 뒤 Firestore에 자동 반영됩니다.
-            </p>
           </div>
         )}
       </section>
@@ -247,15 +222,15 @@ export default function SettingsPage() {
           <KeyRound size={16} className="text-brand-400" /> Gemini API 키
         </h2>
         <p className="mb-3 text-xs text-slate-400">
-          주 키와 보조 키를 한 번 저장해 두면, 이 기기에서는 따로 입력하지 않아도 분석에 계속 씁니다.{" "}
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
             rel="noreferrer"
             className="text-brand-400 underline"
           >
-            키 발급
+            AI Studio
           </a>
+          에서 발급 · 로그인한 Google 계정에 맞춰 동기화됩니다.
         </p>
 
         <div className="space-y-2">
@@ -307,7 +282,6 @@ export default function SettingsPage() {
               <option value="gemini-1.5-flash">gemini-1.5-flash</option>
               <option value="gemini-1.5-pro">gemini-1.5-pro</option>
             </select>
-            <p className="mt-1 text-[11px] text-slate-500">보통은 기본 모델 그대로 두면 됩니다.</p>
           </div>
 
           <div className="flex gap-2">
@@ -329,7 +303,7 @@ export default function SettingsPage() {
 
           {pingState.kind === "ok" && (
             <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <CheckCircle2 size={14} /> 연결 확인됐어요.
+              <CheckCircle2 size={14} /> 연결됨
             </p>
           )}
           {pingState.kind === "fail" && (
@@ -340,12 +314,10 @@ export default function SettingsPage() {
           )}
           {keySavedFlash && (
             <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <CheckCircle2 size={14} /> 저장했어요.
+              <CheckCircle2 size={14} /> 저장됨
             </p>
           )}
         </div>
-
-        <p className="mt-3 text-[11px] text-slate-500">저장한 키는 이 기기에만 남고, 가족 데이터 클라우드 동기화에는 올라가지 않습니다.</p>
       </section>
 
       <section className="card p-4">
@@ -413,9 +385,7 @@ export default function SettingsPage() {
         </button>
       </section>
 
-      <section className="px-1 pb-4 text-center text-[11px] text-slate-600">
-        헬스헬스 v0.1.0 · 로컬 IndexedDB + 로그인 시 클라우드 자동 동기화
-      </section>
+      <section className="px-1 pb-4 text-center text-[11px] text-slate-600">헬스헬스 v0.1.0</section>
     </div>
   );
 }

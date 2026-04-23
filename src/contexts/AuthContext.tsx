@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -18,6 +19,7 @@ import {
   type User,
 } from "firebase/auth";
 import { ensureAutoCloudSyncListeners, requestAutoCloudSync } from "../lib/autoCloudSync";
+import { clearLocalProfileDataPreservingDevicePreferences } from "../lib/db";
 import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "../lib/firebaseApp";
 
 function formatSignInError(e: unknown): string {
@@ -27,10 +29,10 @@ function formatSignInError(e: unknown): string {
     return "팝업이 차단되었습니다. 주소창에서 이 사이트의 팝업을 허용한 뒤 다시 시도하세요.";
   }
   if (code === "auth/unauthorized-domain") {
-    return "이 사이트 도메인이 Firebase에 등록되어 있지 않습니다. Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 현재 주소(예: xxx.github.io)를 추가하세요.";
+    return "Firebase 콘솔 → Authentication → 승인된 도메인에 이 사이트 주소를 추가하세요.";
   }
   if (code === "auth/operation-not-allowed") {
-    return "Google 로그인이 Firebase에서 켜져 있지 않습니다. Authentication → Sign-in method에서 Google을 사용 설정하세요.";
+    return "Firebase에서 Google 로그인 제공업체를 켜 주세요.";
   }
   if (code === "auth/web-storage-unsupported" || /storage/i.test(String(o?.message))) {
     return "브라우저가 저장소(세션)를 막고 있을 수 있습니다. 사생활 보호 모드를 끄거나 다른 브라우저로 시도해 보세요.";
@@ -54,6 +56,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const firebaseReady = isFirebaseConfigured();
+  const prevFirebaseUidRef = useRef<string | undefined>(undefined);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(!firebaseReady);
   const [signInBusy, setSignInBusy] = useState(false);
@@ -93,24 +96,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const auth = getFirebaseAuth();
     void setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-    const sync = () => {
-      setUser(auth.currentUser);
+    const applyAuthUser = async (nextUser: User | null) => {
+      const nextUid = nextUser?.uid;
+      const prevUid = prevFirebaseUidRef.current;
+      if (prevUid !== undefined && prevUid !== nextUid) {
+        await clearLocalProfileDataPreservingDevicePreferences();
+      }
+      prevFirebaseUidRef.current = nextUid;
+      setUser(nextUser);
     };
 
-    const unsubAuth = onAuthStateChanged(auth, sync);
-    const unsubToken = onIdTokenChanged(auth, sync);
+    const unsubAuth = onAuthStateChanged(auth, (u) => void applyAuthUser(u));
+    const unsubToken = onIdTokenChanged(auth, (u) => void applyAuthUser(u));
 
     void auth.authStateReady().then(() => {
-      sync();
+      void applyAuthUser(auth.currentUser);
       setAuthReady(true);
     });
 
-    const timeouts = [50, 200, 600, 1500].map((ms) => window.setTimeout(sync, ms));
+    const timeouts = [50, 200, 600, 1500].map((ms) =>
+      window.setTimeout(() => void applyAuthUser(auth.currentUser), ms),
+    );
 
     const onVis = () => {
-      if (document.visibilityState === "visible") sync();
+      if (document.visibilityState === "visible") void applyAuthUser(auth.currentUser);
     };
-    const onShow = () => sync();
+    const onShow = () => void applyAuthUser(auth.currentUser);
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("pageshow", onShow);
 
@@ -150,8 +161,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const signOutApp = useCallback(async () => {
-    const auth = getFirebaseAuth();
-    await signOut(auth);
+    try {
+      const auth = getFirebaseAuth();
+      await signOut(auth);
+    } catch (e) {
+      console.error("[auth] 로그아웃", e);
+    }
   }, []);
 
   const value = useMemo(

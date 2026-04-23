@@ -26,7 +26,7 @@ export default function FirebaseLoginCard() {
   if (loading) {
     return (
       <section className="card flex items-center gap-2 border-slate-800 bg-slate-900/40 px-4 py-3 text-xs text-slate-500">
-        <Loader2 size={14} className="animate-spin" /> 클라우드 로그인 상태 확인 중…
+        <Loader2 size={14} className="animate-spin" /> 로그인 확인 중…
       </section>
     );
   }
@@ -38,13 +38,9 @@ export default function FirebaseLoginCard() {
           <div className="min-w-0 flex-1">
             <p className="text-xs text-sky-200/90">
               <Cloud size={14} className="mr-1 inline align-text-bottom" />
-              Google 연결됨{" "}
               <span className="font-medium text-sky-100">
-                {user.email ?? user.displayName ?? "계정"}
+                {user.email ?? user.displayName ?? "Google"}
               </span>
-            </p>
-            <p className="mt-1 text-[11px] text-slate-500">
-              기록을 바꾸면 잠시 뒤 자동으로 클라우드와 맞춰요.
             </p>
           </div>
           <button
@@ -61,12 +57,9 @@ export default function FirebaseLoginCard() {
 
   return (
     <section className="card border-sky-500/30 bg-sky-500/10 px-4 py-4">
-      <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-sky-100">
-        <Cloud size={16} className="text-sky-400" /> 클라우드에 기록 맞추기
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-sky-100">
+        <Cloud size={16} className="text-sky-400" /> 데이터 동기화
       </h2>
-      <p className="mb-3 text-xs text-sky-200/80">
-        Google로 로그인하면 여러 기기에서 같은 데이터를 자동으로 맞출 수 있어요.
-      </p>
       <button
         type="button"
         disabled={signInBusy}

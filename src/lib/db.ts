@@ -28,14 +28,18 @@ export async function getSettings(): Promise<AppSettings> {
   return s ?? { id: SETTINGS_KEY };
 }
 
-function scheduleAutoSyncAfterSettings(patch: Partial<AppSettings>): void {
-  const keys = Object.keys(patch);
-  if (
-    keys.length > 0 &&
-    keys.every((k) => k === "geminiApiKey" || k === "geminiApiKeyBackup")
-  ) {
-    return;
-  }
+/** 로그아웃·Google 계정 전환 시: 로컬 프로필·기록·설정 전부 초기화(다음 로그인 계정의 클라우드로 채움). */
+export async function clearLocalProfileDataPreservingDevicePreferences(): Promise<void> {
+  await db.transaction("rw", db.users, db.meals, db.health, db.settings, async () => {
+    await db.users.clear();
+    await db.meals.clear();
+    await db.health.clear();
+    await db.settings.clear();
+    await db.settings.put({ id: SETTINGS_KEY });
+  });
+}
+
+function scheduleAutoSyncAfterSettings(_patch: Partial<AppSettings>): void {
   void import("./autoCloudSync").then((m) => {
     m.ensureAutoCloudSyncListeners();
     m.requestAutoCloudSync();
@@ -61,6 +65,9 @@ export async function patchSettings(patch: Partial<AppSettings>): Promise<void> 
     "onboarded" in patch
   ) {
     next.appSettingsUpdatedAt = Date.now();
+  }
+  if ("geminiApiKey" in patch || "geminiApiKeyBackup" in patch) {
+    next.geminiSettingsUpdatedAt = Date.now();
   }
   await db.settings.put(next);
   scheduleAutoSyncAfterSettings(patch);

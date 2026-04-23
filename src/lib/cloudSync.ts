@@ -1,6 +1,7 @@
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -35,6 +36,13 @@ type PublicSettingsDoc = {
   activeUserId?: string;
   model?: string;
   onboarded?: boolean;
+  updatedAt: number;
+};
+
+/** 본인 Firebase UID 하위만 접근 — Gemini 키(계정별) */
+type PrivateSettingsDoc = {
+  geminiApiKey?: string;
+  geminiApiKeyBackup?: string;
   updatedAt: number;
 };
 
@@ -143,6 +151,13 @@ async function pullPublicSettings(uid: string): Promise<PublicSettingsDoc | null
   const d = await getDoc(doc(fs, "users", uid, "config", "public"));
   if (!d.exists) return null;
   return d.data() as PublicSettingsDoc;
+}
+
+async function pullPrivateSettings(uid: string): Promise<PrivateSettingsDoc | null> {
+  const fs = getFirestoreDb();
+  const d = await getDoc(doc(fs, "users", uid, "config", "private"));
+  if (!d.exists) return null;
+  return d.data() as PrivateSettingsDoc;
 }
 
 async function mealToStored(m: Meal): Promise<MealStored> {
@@ -297,6 +312,18 @@ async function pushPublicSettings(uid: string, s: AppSettings): Promise<void> {
   await setDoc(doc(fs, "users", uid, "config", "public"), cleanForFirestore(docData));
 }
 
+async function pushPrivateSettings(uid: string, s: AppSettings): Promise<void> {
+  const fs = getFirestoreDb();
+  const updatedAt = s.geminiSettingsUpdatedAt ?? Date.now();
+  const primary = s.geminiApiKey?.trim();
+  const backup = s.geminiApiKeyBackup?.trim();
+  await setDoc(doc(fs, "users", uid, "config", "private"), {
+    updatedAt,
+    geminiApiKey: primary ? primary : deleteField(),
+    geminiApiKeyBackup: backup ? backup : deleteField(),
+  });
+}
+
 /** Firestore 규칙 미게시 등으로 동기화가 막힐 때 사용자 안내 */
 export function formatCloudSyncError(e: unknown): string {
   const base = e instanceof Error ? e.message : String(e);
@@ -317,7 +344,7 @@ export function isCloudSyncMutation(): boolean {
 /**
  * 원격과 로컬을 병합한 뒤 양쪽에 반영합니다.
  * Spark(무료) 플랜: Firebase Storage 없이 Firestore 문서에 압축 JPEG(Base64)만 저장합니다.
- * Gemini 키는 클라우드에 올리지 않습니다.
+ * Gemini 키는 users/{uid}/config/private 에만 저장되며, Firestore 규칙으로 본인만 접근합니다.
  */
 export async function syncCloudWithLocal(): Promise<void> {
   cloudSyncMutationDepth++;
@@ -330,6 +357,7 @@ export async function syncCloudWithLocal(): Promise<void> {
     const remoteMeals = await pullMealsStored(uid);
     const remoteHealth = await pullHealthStored(uid);
     const remotePublic = await pullPublicSettings(uid);
+    const remotePrivate = await pullPrivateSettings(uid);
 
     const localMembers = await dexieDb.users.toArray();
     const localMeals = await dexieDb.meals.toArray();
@@ -347,6 +375,16 @@ export async function syncCloudWithLocal(): Promise<void> {
         model: remotePublic.model,
         onboarded: remotePublic.onboarded,
         appSettingsUpdatedAt: remotePublic.updatedAt,
+        id: SETTINGS_KEY,
+      };
+    }
+
+    if (remotePrivate && remotePrivate.updatedAt > (localSettings.geminiSettingsUpdatedAt ?? 0)) {
+      localSettings = {
+        ...localSettings,
+        geminiApiKey: remotePrivate.geminiApiKey || undefined,
+        geminiApiKeyBackup: remotePrivate.geminiApiKeyBackup || undefined,
+        geminiSettingsUpdatedAt: remotePrivate.updatedAt,
         id: SETTINGS_KEY,
       };
     }
@@ -384,6 +422,7 @@ export async function syncCloudWithLocal(): Promise<void> {
 
     const latestLocal = await getSettings();
     await pushPublicSettings(uid, latestLocal);
+    await pushPrivateSettings(uid, latestLocal);
   } finally {
     cloudSyncMutationDepth--;
   }

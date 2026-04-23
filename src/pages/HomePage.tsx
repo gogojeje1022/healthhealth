@@ -112,10 +112,7 @@ export default function HomePage() {
           to="/settings"
           className="card flex items-center justify-between gap-3 border-slate-700 bg-slate-900/40 p-4"
         >
-          <div>
-            <p className="text-sm font-medium text-slate-200">AI 분석 쓰기</p>
-            <p className="mt-1 text-xs text-slate-500">설정에서 키를 한 번 저장해 주세요.</p>
-          </div>
+          <span className="text-sm text-slate-200">AI 분석 — 설정에서 Gemini 키</span>
           <ChevronRight size={20} className="text-slate-500" />
         </Link>
       )}

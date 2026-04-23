@@ -131,6 +131,8 @@ export interface AppSettings {
   onboarded?: boolean;
   /** 공개 설정(activeUserId·model·onboarded) 충돌 해결용 타임스탬프 */
   appSettingsUpdatedAt?: number;
+  /** Gemini 키 충돌 해결용 — 계정별 Firestore config/private 동기화 */
+  geminiSettingsUpdatedAt?: number;
   /** 마지막 클라우드 동기화 완료 시각 (로컬 전용) */
   lastCloudSyncAt?: number;
 }

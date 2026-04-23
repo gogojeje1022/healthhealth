@@ -84,17 +84,15 @@ export default function OnboardingPage() {
           <br />
           오신 것을 환영해요
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-400">
-          가족 2~4명을 등록하고, 매일의 식단을 사진으로 기록하세요.
-          <br />
-          AI가 메뉴를 분석하고 건강 점수를 알려드려요.
+        <p className="mt-3 text-sm text-slate-400">
+          가족을 등록하고 식단·건강 기록을 사진으로 남기면 AI가 분석합니다.
         </p>
-        <p className="mt-2 text-xs leading-relaxed text-slate-500">
-          이미 클라우드에 데이터가 있나요? 아래에서 Google로 로그인하면 자동으로 맞춰져요. 계정 전환은{" "}
-          <Link to="/settings" className="font-medium text-brand-400 underline">
+        <p className="mt-2 text-xs text-slate-500">
+          기존 클라우드 데이터는 아래 <strong className="text-slate-400">Google 로그인</strong> 후 이어집니다. 계정 바꾸기는{" "}
+          <Link to="/settings" className="text-brand-400 underline">
             설정
           </Link>
-          에서 로그아웃 후 다시 로그인하면 됩니다.
+          .
         </p>
       </header>
 
@@ -155,18 +153,13 @@ export default function OnboardingPage() {
 
       <section className="mb-8">
         <h2 className="mb-2 text-sm font-semibold text-slate-300">
-          Gemini API 키 <span className="text-slate-500">(선택 · 나중에 설정해도 됨)</span>
+          Gemini API 키 <span className="text-slate-500">(선택)</span>
         </h2>
         <p className="mb-3 text-xs text-slate-500">
-          여기서 주 키·보조 키를 넣어 두면 저장 후부터는 입력 없이 분석에 씁니다.{" "}
-          <a
-            href="https://aistudio.google.com/apikey"
-            target="_blank"
-            rel="noreferrer"
-            className="text-brand-400 underline"
-          >
-            키 발급
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-400 underline">
+            AI Studio
           </a>
+          에서 발급 · 나중에 설정에서도 가능
         </p>
         <label className="mb-1 block text-[11px] text-slate-500">주 API 키</label>
         <input
