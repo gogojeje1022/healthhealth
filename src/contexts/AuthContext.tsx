@@ -19,8 +19,11 @@ import {
   type User,
 } from "firebase/auth";
 import { ensureAutoCloudSyncListeners, requestAutoCloudSync } from "../lib/autoCloudSync";
-import { clearLocalProfileDataPreservingDevicePreferences } from "../lib/db";
+import { clearLocalProfileDataPreservingDevicePreferences, getSettings } from "../lib/db";
 import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "../lib/firebaseApp";
+
+/** 로그인했던 흔적은 있는데 Firebase 세션이 없을 때(쿠키만 삭제 등) 로컬 DB 정리용 */
+const LAST_FB_UID_KEY = "healthhealth_last_fb_uid";
 
 function formatSignInError(e: unknown): string {
   const o = e as { code?: string; message?: string };
@@ -99,10 +102,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const applyAuthUser = async (nextUser: User | null) => {
       const nextUid = nextUser?.uid;
       const prevUid = prevFirebaseUidRef.current;
+
+      if (firebaseReady && !nextUid) {
+        const hasStoredUid =
+          typeof localStorage !== "undefined" && !!localStorage.getItem(LAST_FB_UID_KEY);
+        const staleCloud = hasStoredUid
+          ? false
+          : !!(await getSettings()).lastCloudSyncAt;
+        if (hasStoredUid || staleCloud) {
+          await clearLocalProfileDataPreservingDevicePreferences();
+          if (typeof localStorage !== "undefined") localStorage.removeItem(LAST_FB_UID_KEY);
+          prevFirebaseUidRef.current = undefined;
+          setUser(null);
+          return;
+        }
+      }
+
       if (prevUid !== undefined && prevUid !== nextUid) {
         await clearLocalProfileDataPreservingDevicePreferences();
+        if (typeof localStorage !== "undefined") localStorage.removeItem(LAST_FB_UID_KEY);
       }
+
       prevFirebaseUidRef.current = nextUid;
+      if (nextUid && typeof localStorage !== "undefined") {
+        localStorage.setItem(LAST_FB_UID_KEY, nextUid);
+      }
       setUser(nextUser);
     };
 

@@ -258,7 +258,7 @@ function RecordCard({
           <p className="text-xs text-slate-400">
             {HEALTH_TYPE_LABELS[record.type]} · {formatKoDate(record.recordDate)}
           </p>
-          <p className="mt-0.5 line-clamp-4 text-sm font-medium leading-snug text-slate-100 break-words">
+          <p className="mt-0.5 text-sm font-medium leading-snug text-slate-100 break-words whitespace-pre-wrap">
             {record.summary ?? statusLabel(record)}
           </p>
         </div>
@@ -274,12 +274,6 @@ function RecordCard({
 
       {open && (
         <div className="space-y-3 border-t border-slate-800 p-4">
-          {record.summary && (
-            <p className="text-sm leading-relaxed text-slate-100 break-words whitespace-pre-wrap">
-              {record.summary}
-            </p>
-          )}
-
           {record.analysisStatus === "analyzing" && (
             <div className="flex items-center gap-2 rounded-xl bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
               <Loader2 size={16} className="animate-spin text-brand-400" />
