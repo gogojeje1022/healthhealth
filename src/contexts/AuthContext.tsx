@@ -5,13 +5,13 @@ import {
   useEffect,
   useMemo,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import {
   GoogleAuthProvider,
   browserLocalPersistence,
   onAuthStateChanged,
+  onIdTokenChanged,
   setPersistence,
   signInWithPopup,
   signInWithRedirect,
@@ -22,10 +22,10 @@ import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "../lib/fire
 
 function usePopupFirstForGoogle(): boolean {
   if (typeof window === "undefined") return false;
-  const coarse =
+  const fine =
     window.matchMedia?.("(pointer: fine)").matches ||
     !window.matchMedia?.("(pointer: coarse)").matches;
-  return coarse;
+  return fine;
 }
 
 function shouldFallbackToRedirect(e: unknown): boolean {
@@ -53,15 +53,6 @@ function formatSignInError(e: unknown): string {
   return o?.message ? `${code ? `${code}: ` : ""}${o.message}` : String(e);
 }
 
-function readAuthUser(firebaseReady: boolean): User | null {
-  if (!firebaseReady) return null;
-  try {
-    return getFirebaseAuth().currentUser;
-  } catch {
-    return null;
-  }
-}
-
 type AuthState = {
   firebaseReady: boolean;
   user: User | null;
@@ -69,6 +60,8 @@ type AuthState = {
   signInBusy: boolean;
   signInError: string | null;
   clearSignInError: () => void;
+  /** Firebase currentUser 를 다시 읽어 UI 동기화 (이벤트 누락 대비) */
+  refreshUser: () => void;
   signInWithGoogle: () => Promise<void>;
   signOutApp: () => Promise<void>;
 };
@@ -77,47 +70,70 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const firebaseReady = isFirebaseConfigured();
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(!firebaseReady);
   const [signInBusy, setSignInBusy] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
-  /** Firebase 미설정이면 true, 설정이면 authStateReady 될 때까지 false → true */
-  const [authReady, setAuthReady] = useState(!firebaseReady);
-
-  const subscribe = useCallback(
-    (onStoreChange: () => void) => {
-      if (!firebaseReady) return () => {};
-      initFirebase();
-      const auth = getFirebaseAuth();
-      void setPersistence(auth, browserLocalPersistence).catch(() => {
-        /* 일부 환경에서 실패해도 기본 영속성으로 진행 */
-      });
-      return onAuthStateChanged(auth, onStoreChange);
-    },
-    [firebaseReady],
-  );
-
-  const getSnapshot = useCallback(() => readAuthUser(firebaseReady), [firebaseReady]);
-
-  const user = useSyncExternalStore(subscribe, getSnapshot, () => null);
-
-  useEffect(() => {
-    if (!firebaseReady) {
-      setAuthReady(true);
-      return;
-    }
-    initFirebase();
-    void getFirebaseAuth()
-      .authStateReady()
-      .catch(() => {})
-      .finally(() => setAuthReady(true));
-  }, [firebaseReady]);
-
-  const loading = firebaseReady && !authReady;
 
   const clearSignInError = useCallback(() => setSignInError(null), []);
+
+  const refreshUser = useCallback(() => {
+    if (!firebaseReady) {
+      setUser(null);
+      return;
+    }
+    try {
+      setUser(getFirebaseAuth().currentUser);
+    } catch {
+      setUser(null);
+    }
+  }, [firebaseReady]);
 
   useEffect(() => {
     if (user) setSignInBusy(false);
   }, [user]);
+
+  useEffect(() => {
+    if (!firebaseReady) {
+      setUser(null);
+      setAuthReady(true);
+      return;
+    }
+    initFirebase();
+    const auth = getFirebaseAuth();
+    void setPersistence(auth, browserLocalPersistence).catch(() => {});
+
+    const sync = () => {
+      setUser(auth.currentUser);
+    };
+
+    const unsubAuth = onAuthStateChanged(auth, sync);
+    const unsubToken = onIdTokenChanged(auth, sync);
+
+    void auth.authStateReady().then(() => {
+      sync();
+      setAuthReady(true);
+    });
+
+    const timeouts = [50, 200, 600, 1500].map((ms) => window.setTimeout(sync, ms));
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    const onShow = () => sync();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onShow);
+
+    return () => {
+      unsubAuth();
+      unsubToken();
+      timeouts.forEach(clearTimeout);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onShow);
+    };
+  }, [firebaseReady]);
+
+  const loading = firebaseReady && !authReady;
 
   const signInWithGoogle = useCallback(async () => {
     setSignInError(null);
@@ -136,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (usePopupFirstForGoogle()) {
         try {
           await signInWithPopup(auth, provider);
+          refreshUser();
           setSignInBusy(false);
           window.clearTimeout(resetBusyLater);
           return;
@@ -150,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSignInBusy(false);
       window.clearTimeout(resetBusyLater);
     }
-  }, []);
+  }, [refreshUser]);
 
   const signOutApp = useCallback(async () => {
     const auth = getFirebaseAuth();
@@ -165,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInBusy,
       signInError,
       clearSignInError,
+      refreshUser,
       signInWithGoogle,
       signOutApp,
     }),
@@ -175,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInBusy,
       signInError,
       clearSignInError,
+      refreshUser,
       signInWithGoogle,
       signOutApp,
     ],

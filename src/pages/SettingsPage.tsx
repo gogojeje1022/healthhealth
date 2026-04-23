@@ -29,6 +29,7 @@ export default function SettingsPage() {
     signInBusy,
     signInError,
     clearSignInError,
+    refreshUser,
     signInWithGoogle,
     signOutApp,
   } = useAuth();
@@ -51,6 +52,11 @@ export default function SettingsPage() {
     | { kind: "ok" }
     | { kind: "fail"; msg: string }
   >({ kind: "idle" });
+
+  useEffect(() => {
+    if (!firebaseReady) return;
+    refreshUser();
+  }, [firebaseReady, refreshUser]);
 
   useEffect(() => {
     if (settings?.geminiApiKey) setApiKey(settings.geminiApiKey);

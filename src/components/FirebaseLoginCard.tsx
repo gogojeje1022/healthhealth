@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Cloud, Loader2, LogIn } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,8 +12,14 @@ export default function FirebaseLoginCard() {
     signInBusy,
     signInError,
     clearSignInError,
+    refreshUser,
     signInWithGoogle,
   } = useAuth();
+
+  useEffect(() => {
+    if (!firebaseReady) return;
+    refreshUser();
+  }, [firebaseReady, refreshUser]);
 
   if (!firebaseReady) return null;
 
