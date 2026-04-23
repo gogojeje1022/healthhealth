@@ -44,9 +44,8 @@ export default function FirebaseLoginCard() {
         <p className="mt-1 text-[11px] text-slate-500">
           다른 기기와 맞추려면{" "}
           <Link to="/settings" className="text-brand-400 underline">
-            설정 → 지금 동기화
+            설정 → 동기화
           </Link>
-          를 눌러 주세요.
         </p>
       </section>
     );
@@ -57,9 +56,7 @@ export default function FirebaseLoginCard() {
       <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-sky-100">
         <Cloud size={16} className="text-sky-400" /> 클라우드에 기록 맞추기
       </h2>
-      <p className="mb-3 text-xs leading-relaxed text-sky-200/80">
-        Google로 로그인하면 여러 기기에서 같은 가족·식단 데이터를 Firestore에 맞출 수 있어요.
-      </p>
+      <p className="mb-3 text-xs text-sky-200/80">Google로 로그인 후 설정에서 동기화하면 여러 기기와 맞출 수 있어요.</p>
       <button
         type="button"
         disabled={signInBusy}
@@ -67,7 +64,7 @@ export default function FirebaseLoginCard() {
         className="btn-primary flex w-full items-center justify-center gap-2 py-2.5 text-sm disabled:opacity-60"
       >
         {signInBusy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
-        {signInBusy ? "Google로 이동 중…" : "Google로 로그인"}
+        {signInBusy ? "로그인 중…" : "Google로 로그인"}
       </button>
       {signInError && (
         <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200/95">

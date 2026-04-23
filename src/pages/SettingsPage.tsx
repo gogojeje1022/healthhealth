@@ -201,13 +201,7 @@ export default function SettingsPage() {
               <li className="list-none pl-4 text-amber-200/70">(선택) VITE_FIREBASE_STORAGE_BUCKET</li>
             </ul>
           </div>
-        ) : (
-          <p className="mb-3 text-xs leading-relaxed text-slate-400">
-            Google로 로그인하면 가족·식단·건강 기록이 Firestore에 저장됩니다(무료 Spark 플랜·Storage 불필요). 한
-            계정으로 여러 기기에서 맞출 수 있어요. 사진은 문서 크기 한도 안에서 압축해 동기화합니다.{" "}
-            <strong className="text-slate-300">Gemini API 키는 기기에만 남고 서버로 올라가지 않습니다.</strong>
-          </p>
-        )}
+        ) : null}
 
         {firebaseReady && authLoading && (
           <p className="flex items-center gap-2 text-xs text-slate-400">
@@ -224,7 +218,7 @@ export default function SettingsPage() {
               className="btn-primary flex w-full items-center justify-center gap-2 py-2.5 text-sm disabled:opacity-60"
             >
               {signInBusy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
-              {signInBusy ? "Google로 이동 중…" : "Google로 로그인"}
+              {signInBusy ? "로그인 중…" : "Google로 로그인"}
             </button>
             {signInError && (
               <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200/95">
@@ -234,12 +228,10 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
-            <p className="text-[11px] leading-relaxed text-slate-500">
-              누르면 주소가 <strong className="text-slate-400">accounts.google.com</strong> 등으로 바뀌는 것이 정상이에요.
-              화면이 그대로면 아래 오류 문구를 확인하세요. Firebase 콘솔 → Authentication → 설정 →{" "}
-              <strong className="text-slate-400">승인된 도메인</strong>에 이 사이트 호스트(
+            <p className="text-[11px] text-slate-500">
+              팝업이 안 뜨면 브라우저에서 팝업 허용. 문제가 계속되면 Firebase에 이 도메인(
               <code className="text-slate-400">{typeof window !== "undefined" ? window.location.hostname : "…"}</code>
-              )를 넣으세요.
+              )을 승인해 주세요.
             </p>
           </div>
         )}
@@ -263,7 +255,7 @@ export default function SettingsPage() {
               className="btn-secondary flex w-full items-center justify-center gap-2 py-2.5 text-sm"
             >
               {syncState.kind === "busy" ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
-              지금 동기화 (병합 후 업로드)
+              동기화
             </button>
             {settings?.lastCloudSyncAt != null && (
               <p className="text-[11px] text-slate-500">

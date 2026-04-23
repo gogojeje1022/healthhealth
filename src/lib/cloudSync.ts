@@ -302,7 +302,7 @@ export function formatCloudSyncError(e: unknown): string {
   const base = e instanceof Error ? e.message : String(e);
   const code = (e as { code?: string })?.code;
   if (code === "permission-denied" || /insufficient permissions/i.test(base)) {
-    return `${base} — Firebase 콘솔 → Firestore → 규칙에서 저장소의 firestore.rules 내용을 붙여넣고「게시」하세요. 저장소만 수정하고 콘솔에 게시하지 않으면 이 오류가 납니다. 로컬에서는 npx firebase-tools deploy --only firestore:rules 도 가능합니다.`;
+    return `${base} — Firestore 규칙에 firestore.rules 를 콘솔에서 게시했는지 확인하세요.`;
   }
   return base;
 }

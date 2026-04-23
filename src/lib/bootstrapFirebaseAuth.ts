@@ -1,9 +1,7 @@
 import { browserLocalPersistence, getRedirectResult, setPersistence } from "firebase/auth";
 import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "./firebaseApp";
 
-/**
- * React 마운트 전: OAuth 리다이렉트 복귀 URL 처리 + 토큰 확정.
- */
+/** React 마운트 전: 리다이렉트 잔여 세션 정리(있을 때만) + 토큰 확정 */
 export async function bootstrapFirebaseAuth(): Promise<void> {
   if (!isFirebaseConfigured()) return;
   initFirebase();

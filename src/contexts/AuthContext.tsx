@@ -14,33 +14,17 @@ import {
   onIdTokenChanged,
   setPersistence,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
 import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "../lib/firebaseApp";
 
-function usePopupFirstForGoogle(): boolean {
-  if (typeof window === "undefined") return false;
-  const fine =
-    window.matchMedia?.("(pointer: fine)").matches ||
-    !window.matchMedia?.("(pointer: coarse)").matches;
-  return fine;
-}
-
-function shouldFallbackToRedirect(e: unknown): boolean {
-  const code = (e as { code?: string })?.code ?? "";
-  return (
-    code === "auth/popup-blocked" ||
-    code === "auth/popup-closed-by-user" ||
-    code === "auth/cancelled-popup-request" ||
-    code === "auth/operation-not-supported-in-this-environment"
-  );
-}
-
 function formatSignInError(e: unknown): string {
   const o = e as { code?: string; message?: string };
   const code = o?.code ?? "";
+  if (code === "auth/popup-blocked") {
+    return "팝업이 차단되었습니다. 주소창에서 이 사이트의 팝업을 허용한 뒤 다시 시도하세요.";
+  }
   if (code === "auth/unauthorized-domain") {
     return "이 사이트 도메인이 Firebase에 등록되어 있지 않습니다. Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 현재 주소(예: xxx.github.io)를 추가하세요.";
   }
@@ -60,7 +44,6 @@ type AuthState = {
   signInBusy: boolean;
   signInError: string | null;
   clearSignInError: () => void;
-  /** Firebase currentUser 를 다시 읽어 UI 동기화 (이벤트 누락 대비) */
   refreshUser: () => void;
   signInWithGoogle: () => Promise<void>;
   signOutApp: () => Promise<void>;
@@ -148,24 +131,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider.addScope("email");
       provider.setCustomParameters({ prompt: "select_account" });
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
-
-      if (usePopupFirstForGoogle()) {
-        try {
-          await signInWithPopup(auth, provider);
-          refreshUser();
-          setSignInBusy(false);
-          window.clearTimeout(resetBusyLater);
-          return;
-        } catch (e) {
-          if (!shouldFallbackToRedirect(e)) throw e;
-        }
-      }
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
+      refreshUser();
     } catch (e) {
       console.error("[auth] Google 로그인", e);
       setSignInError(formatSignInError(e));
-      setSignInBusy(false);
+    } finally {
       window.clearTimeout(resetBusyLater);
+      setSignInBusy(false);
     }
   }, [refreshUser]);
 
