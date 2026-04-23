@@ -11,7 +11,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { afterUserDataMutation, db, getSettings, uid } from "../lib/db";
+import { afterUserDataMutation, db, getSettings, registerCloudDelete, uid } from "../lib/db";
 import { analyzeHealthImage } from "../lib/ai";
 import {
   HEALTH_TYPE_LABELS,
@@ -137,7 +137,7 @@ export default function HealthPage() {
   async function removeRecord(rec: HealthRecord) {
     if (!confirm("이 건강 기록을 삭제할까요?")) return;
     await db.health.delete(rec.id);
-    afterUserDataMutation();
+    await registerCloudDelete("health", rec.id);
   }
 
   return (

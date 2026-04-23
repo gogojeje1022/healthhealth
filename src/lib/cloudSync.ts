@@ -58,6 +58,25 @@ function docJsonSize(data: object): number {
   return new Blob([JSON.stringify(data)]).size;
 }
 
+function prunePendingDeletes(
+  pd: AppSettings["cloudPendingDeletes"],
+  members: User[],
+  meals: Meal[],
+  health: HealthRecord[],
+): AppSettings["cloudPendingDeletes"] {
+  if (!pd) return undefined;
+  const m = new Set(members.map((x) => x.id));
+  const ml = new Set(meals.map((x) => x.id));
+  const h = new Set(health.map((x) => x.id));
+  const next = {
+    meals: (pd.meals ?? []).filter((id) => ml.has(id)),
+    health: (pd.health ?? []).filter((id) => h.has(id)),
+    members: (pd.members ?? []).filter((id) => m.has(id)),
+  };
+  if (next.meals.length + next.health.length + next.members.length === 0) return undefined;
+  return next;
+}
+
 async function storedToMeal(s: MealStored): Promise<Meal> {
   const { photoPath: _p, thumbnailPath: _t, photoBase64, photoMimeType, ...rest } = s;
   const meal: Meal = { ...rest };
@@ -364,9 +383,17 @@ export async function syncCloudWithLocal(): Promise<void> {
     const localHealth = await dexieDb.health.toArray();
     let localSettings = await getSettings();
 
-    const mergedMembers = mergeUsers(localMembers, remoteMembers);
-    const mergedMeals = await mergeMeals(localMeals, remoteMeals);
-    const mergedHealth = await mergeHealth(localHealth, remoteHealth);
+    const pd = localSettings.cloudPendingDeletes;
+    const skipMembers = new Set(pd?.members ?? []);
+    const skipMeals = new Set(pd?.meals ?? []);
+    const skipHealth = new Set(pd?.health ?? []);
+    const remoteMembersFiltered = remoteMembers.filter((u) => !skipMembers.has(u.id));
+    const remoteMealsFiltered = remoteMeals.filter((m) => !skipMeals.has(m.id));
+    const remoteHealthFiltered = remoteHealth.filter((h) => !skipHealth.has(h.id));
+
+    const mergedMembers = mergeUsers(localMembers, remoteMembersFiltered);
+    const mergedMeals = await mergeMeals(localMeals, remoteMealsFiltered);
+    const mergedHealth = await mergeHealth(localHealth, remoteHealthFiltered);
 
     if (remotePublic && remotePublic.updatedAt > (localSettings.appSettingsUpdatedAt ?? 0)) {
       localSettings = {
@@ -408,6 +435,12 @@ export async function syncCloudWithLocal(): Promise<void> {
       await dexieDb.settings.put({
         ...localSettings,
         lastCloudSyncAt: Date.now(),
+        cloudPendingDeletes: prunePendingDeletes(
+          localSettings.cloudPendingDeletes,
+          mergedMembers,
+          mergedMeals,
+          mergedHealth,
+        ),
         id: SETTINGS_KEY,
       });
     });

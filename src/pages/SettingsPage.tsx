@@ -15,7 +15,14 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { afterUserDataMutation, db, getSettings, patchSettings, uid } from "../lib/db";
+import {
+  afterUserDataMutation,
+  db,
+  getSettings,
+  patchSettings,
+  registerCloudDeletes,
+  uid,
+} from "../lib/db";
 import { pingGemini } from "../lib/ai";
 import { nextColor } from "../lib/utils";
 import type { User } from "../types";
@@ -117,6 +124,8 @@ export default function SettingsPage() {
 
   async function removeUser(u: User) {
     if (!confirm(`${u.name}님과 관련된 모든 기록을 삭제할까요?`)) return;
+    const mealIds = await db.meals.where("userId").equals(u.id).primaryKeys();
+    const healthIds = await db.health.where("userId").equals(u.id).primaryKeys();
     await db.transaction("rw", db.users, db.meals, db.health, async () => {
       await db.users.delete(u.id);
       await db.meals.where("userId").equals(u.id).delete();
@@ -126,7 +135,11 @@ export default function SettingsPage() {
       const remain = await db.users.toArray();
       await patchSettings({ activeUserId: remain[0]?.id });
     }
-    afterUserDataMutation();
+    await registerCloudDeletes({
+      meals: mealIds.map(String),
+      health: healthIds.map(String),
+      members: [u.id],
+    });
   }
 
   async function changeColor(u: User, color: string) {

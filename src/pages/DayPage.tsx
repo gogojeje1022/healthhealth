@@ -12,7 +12,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { afterUserDataMutation, db, getSettings, uid } from "../lib/db";
+import { afterUserDataMutation, db, getSettings, registerCloudDelete, uid } from "../lib/db";
 import { analyzeMealImage } from "../lib/ai";
 import {
   MEAL_SLOTS,
@@ -198,7 +198,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName
     if (!meal) return;
     if (!confirm("이 기록을 삭제할까요?")) return;
     await db.meals.delete(meal.id);
-    afterUserDataMutation();
+    await registerCloudDelete("meals", meal.id);
   }
 
   async function updateNotes(notes: string) {

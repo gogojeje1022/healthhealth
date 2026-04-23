@@ -135,4 +135,12 @@ export interface AppSettings {
   geminiSettingsUpdatedAt?: number;
   /** 마지막 클라우드 동기화 완료 시각 (로컬 전용) */
   lastCloudSyncAt?: number;
+  /**
+   * 로컬에서 삭제 후 Firestore 반영 전·병합 시 원격 부활 방지용 ID (로컬만, 동기화 후 정리)
+   */
+  cloudPendingDeletes?: {
+    meals?: string[];
+    health?: string[];
+    members?: string[];
+  };
 }
