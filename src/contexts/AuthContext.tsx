@@ -9,10 +9,8 @@ import {
 } from "react";
 import {
   GoogleAuthProvider,
-  browserLocalPersistence,
   getRedirectResult,
   onAuthStateChanged,
-  setPersistence,
   signInWithRedirect,
   signOut,
   type User,
@@ -113,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const auth = getFirebaseAuth();
       await auth.authStateReady();
-      await setPersistence(auth, browserLocalPersistence);
       const provider = new GoogleAuthProvider();
       provider.addScope("profile");
       provider.addScope("email");
