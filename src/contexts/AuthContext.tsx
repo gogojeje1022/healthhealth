@@ -9,8 +9,9 @@ import {
 } from "react";
 import {
   GoogleAuthProvider,
+  getRedirectResult,
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
@@ -39,17 +40,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     initFirebase();
     const auth = getFirebaseAuth();
-    return onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
+    let unsub: (() => void) | undefined;
+    let cancelled = false;
+
+    getRedirectResult(auth)
+      .catch((e) => {
+        console.warn("[auth] redirect 결과", e);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        unsub = onAuthStateChanged(auth, (u) => {
+          setUser(u);
+          setLoading(false);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [firebaseReady]);
 
+  /** GitHub Pages 등에서는 팝업이 즉시 닫히는 경우가 많아 redirect 사용 */
   const signInWithGoogle = useCallback(async () => {
     const auth = getFirebaseAuth();
     const provider = new GoogleAuthProvider();
+    provider.addScope("profile");
+    provider.addScope("email");
     provider.setCustomParameters({ prompt: "select_account" });
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   }, []);
 
   const signOutApp = useCallback(async () => {

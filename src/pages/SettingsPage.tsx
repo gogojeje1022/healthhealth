@@ -205,6 +205,12 @@ export default function SettingsPage() {
             <button type="button" onClick={() => signInWithGoogle()} className="btn-primary flex w-full items-center justify-center gap-2 py-2.5 text-sm">
               <LogIn size={16} /> Google로 로그인
             </button>
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              Google 계정 화면으로 <strong className="text-slate-400">이동(리다이렉트)</strong>합니다. 팝업이 아니라
+              주소가 바뀌는 것이 정상이에요. Firebase 콘솔 → Authentication → 설정 →{" "}
+              <strong className="text-slate-400">승인된 도메인</strong>에{" "}
+              <code className="text-slate-400">github.io</code> 주소(예: 페이지 호스트)가 있어야 합니다.
+            </p>
           </div>
         )}
 
