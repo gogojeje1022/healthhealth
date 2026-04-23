@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Sparkles, ChevronRight } from "lucide-react";
 import { db, getSettings } from "../lib/db";
 import Calendar from "../components/Calendar";
+import FirebaseLoginCard from "../components/FirebaseLoginCard";
 import UserSelector from "../components/UserSelector";
 import { dateKey, formatKoDate } from "../lib/utils";
 import { MEAL_SLOTS, MEAL_SLOT_EMOJI, MEAL_SLOT_LABELS } from "../types";
@@ -52,6 +53,8 @@ export default function HomePage() {
           </Link>
         )}
       </header>
+
+      <FirebaseLoginCard />
 
       <UserSelector showAdd onAdd={() => navigate("/settings")} />
 

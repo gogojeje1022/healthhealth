@@ -64,23 +64,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     initFirebase();
     const auth = getFirebaseAuth();
-    let unsub: (() => void) | undefined;
     let cancelled = false;
 
-    getRedirectResult(auth).catch((e) => {
-      console.warn("[auth] redirect 결과", e);
-    })
-      .finally(() => {
-        if (cancelled) return;
-        unsub = onAuthStateChanged(auth, (u) => {
-          setUser(u);
-          setLoading(false);
-        });
+    // 리다이렉트 로그인 직후: getRedirectResult 가 먼저 끝나면 onAuthStateChanged 가 이미 발행된 뒤일 수 있음.
+    // 리스너를 먼저 걸고 getRedirectResult 로 pending redirect 를 처리해야 상태가 반영됩니다.
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (cancelled) return;
+      setUser(u);
+      setLoading(false);
+    });
+
+    void getRedirectResult(auth)
+      .then((result) => {
+        if (cancelled || !result?.user) return;
+        setUser(result.user);
+        setLoading(false);
+      })
+      .catch((e) => {
+        console.warn("[auth] redirect 결과", e);
       });
 
     return () => {
       cancelled = true;
-      unsub?.();
+      unsub();
     };
   }, [firebaseReady]);
 
