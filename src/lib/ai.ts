@@ -10,7 +10,8 @@
 import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { blobToBase64, compressImage } from "./image";
 
-const DEFAULT_MODEL = "gemini-2.0-flash-lite";
+/** AI Studio 무료 한도 표가 보통 2.5 Flash Lite 기준이므로, 2.0 계열과 쿼터 풀이 다를 수 있음 */
+const DEFAULT_MODEL = "gemini-2.5-flash-lite";
 
 /** 429 등 Google 쿼터/속도 제한 시 사용자 안내 */
 function formatGeminiFailure(prefix: string, e: unknown): string {
@@ -19,7 +20,7 @@ function formatGeminiFailure(prefix: string, e: unknown): string {
     /\b429\b/.test(raw) ||
     /quota|rate limit|exceeded your current quota/i.test(raw);
   if (quota) {
-    return `${prefix}: Google API 무료(또는 현재 요금제) 한도를 넘었습니다(429). 한도는 사진 파일 크기보다 하루·분당 요청 횟수와 토큰으로 정해지는 경우가 많습니다. 몇 분~몇 시간 뒤 다시 시도하거나, 설정에서 모델을 gemini-2.0-flash-lite 등으로 바꿔 보세요. 사용량: https://ai.dev/rate-limit · 한도 안내: https://ai.google.dev/gemini-api/docs/rate-limits`;
+    return `${prefix}: Google API 무료(또는 현재 요금제) 한도를 넘었습니다(429). 한도는 사진 파일 크기보다 하루·분당 요청 횟수와 토큰으로 정해지는 경우가 많습니다. 몇 분~몇 시간 뒤 다시 시도하거나, 설정에서 모델을 gemini-2.5-flash-lite 등(AI Studio 비율 제한에 나온 모델)으로 맞춰 보세요. 사용량: https://ai.dev/rate-limit · 한도 안내: https://ai.google.dev/gemini-api/docs/rate-limits`;
   }
   return `${prefix}: ${raw}`;
 }

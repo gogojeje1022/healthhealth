@@ -22,7 +22,7 @@ export default function SettingsPage() {
 
   const [apiKey, setApiKey] = useState("");
   const [apiKeyBackup, setApiKeyBackup] = useState("");
-  const [model, setModel] = useState("gemini-2.0-flash-lite");
+  const [model, setModel] = useState("gemini-2.5-flash-lite");
   const [show, setShow] = useState(false);
   const [pingState, setPingState] = useState<
     | { kind: "idle" }
@@ -194,9 +194,10 @@ export default function SettingsPage() {
               onChange={(e) => setModel(e.target.value)}
               className="input"
             >
-              <option value="gemini-2.0-flash-lite">
-                gemini-2.0-flash-lite (기본 · 무료 한도에 유리)
+              <option value="gemini-2.5-flash-lite">
+                gemini-2.5-flash-lite (기본 · AI Studio 무료 한도와 동일 계열)
               </option>
+              <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (구버전, 한도 풀이 다를 수 있음)</option>
               <option value="gemini-2.0-flash">gemini-2.0-flash (더 정교, 한도 빨리 찰 수 있음)</option>
               <option value="gemini-1.5-flash">gemini-1.5-flash</option>
               <option value="gemini-1.5-pro">gemini-1.5-pro (고급)</option>
