@@ -297,6 +297,16 @@ async function pushPublicSettings(uid: string, s: AppSettings): Promise<void> {
   await setDoc(doc(fs, "users", uid, "config", "public"), cleanForFirestore(docData));
 }
 
+/** Firestore 규칙 미게시 등으로 동기화가 막힐 때 사용자 안내 */
+export function formatCloudSyncError(e: unknown): string {
+  const base = e instanceof Error ? e.message : String(e);
+  const code = (e as { code?: string })?.code;
+  if (code === "permission-denied" || /insufficient permissions/i.test(base)) {
+    return `${base} — Firebase 콘솔 → Firestore → 규칙에서 저장소의 firestore.rules 내용을 붙여넣고「게시」하세요. 저장소만 수정하고 콘솔에 게시하지 않으면 이 오류가 납니다. 로컬에서는 npx firebase-tools deploy --only firestore:rules 도 가능합니다.`;
+  }
+  return base;
+}
+
 /**
  * 원격과 로컬을 병합한 뒤 양쪽에 반영합니다.
  * Spark(무료) 플랜: Firebase Storage 없이 Firestore 문서에 압축 JPEG(Base64)만 저장합니다.

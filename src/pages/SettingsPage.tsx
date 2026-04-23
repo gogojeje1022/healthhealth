@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { syncCloudWithLocal } from "../lib/cloudSync";
+import { formatCloudSyncError, syncCloudWithLocal } from "../lib/cloudSync";
 import { db, getSettings, patchSettings, uid } from "../lib/db";
 import { pingGemini } from "../lib/ai";
 import { nextColor } from "../lib/utils";
@@ -142,7 +142,7 @@ export default function SettingsPage() {
     } catch (e) {
       setSyncState({
         kind: "fail",
-        msg: e instanceof Error ? e.message : "동기화 실패",
+        msg: formatCloudSyncError(e),
       });
     }
   }
