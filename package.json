@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "가족(2~4인) 건강관리 웹앱 - 달력 기반 식단 기록 + AI 분석",
+  "description": "1인용 건강관리 웹앱 — 달력 기반 식단 기록 + AI 분석",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -b && vite build",

@@ -46,7 +46,7 @@ function scheduleAutoSyncAfterSettings(_patch: Partial<AppSettings>): void {
   });
 }
 
-/** 식단·건강·가족 등 로컬 데이터 변경 후 호출 — 로그인 시 클라우드와 자동 맞춤 */
+/** 식단·건강·프로필 등 로컬 데이터 변경 후 호출 — 로그인 시 클라우드와 자동 맞춤 */
 export function afterUserDataMutation(): void {
   void import("./autoCloudSync").then((m) => {
     m.ensureAutoCloudSyncListeners();
@@ -81,7 +81,7 @@ export function uid(): string {
   );
 }
 
-/** 식단·건강·가족 삭제 시 클라우드 동기화가 원격 문서를 다시 끌어오지 않도록 표시 */
+/** 식단·건강·프로필 삭제 시 클라우드 동기화가 원격 문서를 다시 끌어오지 않도록 표시 */
 export async function registerCloudDeletes(ids: {
   meals?: string[];
   health?: string[];

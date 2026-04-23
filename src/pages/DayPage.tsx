@@ -22,7 +22,7 @@ import {
   type MealSlot,
 } from "../types";
 import PhotoUpload from "../components/PhotoUpload";
-import UserSelector from "../components/UserSelector";
+import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
 import { blobUrl } from "../lib/image";
 import { cls, formatKoDate } from "../lib/utils";
 
@@ -31,7 +31,7 @@ export default function DayPage() {
   const navigate = useNavigate();
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const settings = useLiveQuery(() => getSettings(), []);
-  const userId = settings?.activeUserId;
+  const userId = usePrimaryUserId();
 
   const meals = useLiveQuery(
     async () =>
@@ -63,8 +63,6 @@ export default function DayPage() {
         </div>
       </header>
 
-      <UserSelector />
-
       {!settings?.geminiApiKey && (
         <Link to="/settings" className="card border-slate-700 bg-slate-900/40 px-4 py-3 text-xs text-slate-400">
           AI 분석은 설정에 Gemini 키가 필요합니다.
@@ -72,7 +70,7 @@ export default function DayPage() {
       )}
 
       {!userId && (
-        <div className="card p-4 text-center text-sm text-slate-400">사용자를 선택하세요.</div>
+        <div className="card p-4 text-center text-sm text-slate-400">프로필을 불러오는 중이에요.</div>
       )}
 
       {!validDate && (

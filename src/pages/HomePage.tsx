@@ -5,7 +5,7 @@ import { Sparkles, ChevronRight } from "lucide-react";
 import { db, getSettings } from "../lib/db";
 import Calendar from "../components/Calendar";
 import FirebaseLoginCard from "../components/FirebaseLoginCard";
-import UserSelector from "../components/UserSelector";
+import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
 import { dateKey, formatKoDate } from "../lib/utils";
 import { MEAL_SLOTS, MEAL_SLOT_EMOJI, MEAL_SLOT_LABELS } from "../types";
 
@@ -15,7 +15,7 @@ export default function HomePage() {
   const [selected, setSelected] = useState<string>(dateKey());
 
   const settings = useLiveQuery(() => getSettings(), []);
-  const userId = settings?.activeUserId;
+  const userId = usePrimaryUserId();
 
   const dayMeals = useLiveQuery(
     async () =>
@@ -55,8 +55,6 @@ export default function HomePage() {
       </header>
 
       <FirebaseLoginCard />
-
-      <UserSelector showAdd onAdd={() => navigate("/settings")} />
 
       <Calendar
         cursor={cursor}

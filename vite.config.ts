@@ -18,9 +18,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "헬스헬스 - 가족 건강관리",
+        name: "헬스헬스 — 식단·건강 기록",
         short_name: "헬스헬스",
-        description: "가족 2~4인을 위한 달력 기반 식단 + AI 건강 분석 앱",
+        description: "달력 기반 식단 기록과 AI 건강 분석 — 1인용",
         theme_color: "#10b981",
         background_color: "#0f172a",
         display: "standalone",

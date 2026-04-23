@@ -1,6 +1,6 @@
 # 헬스헬스 (HealthHealth)
 
-> 가족(2~4인)을 위한 **달력 기반 식단 + AI 건강 분석** 웹앱.
+> **달력 기반 식단 + AI 건강 분석** 1인용 웹앱.
 > Galaxy S24 같은 모바일에 최적화되어 있고, 노트북 브라우저에서도 잘 작동합니다.
 > **GitHub Pages로 100% 무료 호스팅**됩니다.
 
@@ -10,7 +10,7 @@
 - 🍱 **식사 6슬롯 기록** — 아침 / 오전 간식 / 점심 / 오후 간식 / 저녁 / 야식. 모바일 카메라로 바로 촬영해 업로드.
 - 🤖 **AI 식단 분석 (Gemini)** — 사진 → 메뉴 텍스트 변환, 5점 만점 별점, 한 줄 평, 칼로리/탄단지 추정.
 - ❤️ **건강 프로필** — 건강검진표 / 인바디 사진을 올리면 OCR + 100점 만점 건강 점수 자동 평가, 강점·주의·권장 코멘트 제공.
-- 👨‍👩‍👧 **가족 다중 사용자** — 2~4명 가족을 색깔별로 구분 관리.
+- 👤 **프로필** — 한 명의 식단·건강 기록을 이름·색으로 표시.
 - 📲 **PWA** — 모바일 홈 화면에 설치 가능, 오프라인 캐시 지원.
 - 🔒 **100% 클라이언트 사이드** — 모든 데이터(사진 포함)는 브라우저 IndexedDB 에 저장. 서버 없음. API 키도 본인 기기에만.
 
@@ -91,7 +91,7 @@ npm run dev
 
 ```
 src/
-├── components/     # Calendar, BottomNav, PhotoUpload, UserSelector, HealthScoreRing
+├── components/     # Calendar, BottomNav, PhotoUpload, HealthScoreRing 등
 ├── pages/          # Home, Day(식사), Health, Settings, Onboarding
 ├── lib/
 │   ├── db.ts       # Dexie 스키마 + getSettings/patchSettings
@@ -115,7 +115,7 @@ src/
 
 - [ ] 데이터 JSON 내보내기/가져오기 (간이 백업)
 - [ ] 주간/월간 영양 통계 차트
-- [ ] 가족 공유용 클라우드 옵션 (Firebase, Supabase 무료 티어)
+- [ ] 클라우드 동기화·백업 고도화
 - [ ] 음성 메모, 식사 시간 자동 기록
 - [ ] 건강 점수 추세 그래프
 

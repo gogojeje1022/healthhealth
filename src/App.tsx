@@ -29,6 +29,16 @@ export default function App() {
     });
   }, [gate?.settings.activeUserId]);
 
+  // 1인 모드: 프로필이 하나뿐이면 활성 ID를 그 프로필로 맞춤
+  useEffect(() => {
+    if (!gate || gate.userCount !== 1) return;
+    db.users.orderBy("createdAt").first().then((u) => {
+      if (u && gate.settings.activeUserId !== u.id) {
+        void patchSettings({ activeUserId: u.id });
+      }
+    });
+  }, [gate?.userCount, gate?.settings.activeUserId]);
+
   // 데이터 로딩 중
   if (gate === undefined) {
     return (

@@ -9,10 +9,9 @@ import {
   Loader2,
   LogIn,
   LogOut,
-  Plus,
   Trash2,
   TriangleAlert,
-  Users,
+  UserRound,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -20,11 +19,9 @@ import {
   db,
   getSettings,
   patchSettings,
-  registerCloudDeletes,
-  uid,
 } from "../lib/db";
 import { pingGemini } from "../lib/ai";
-import { nextColor } from "../lib/utils";
+import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
 import type { User } from "../types";
 
 export default function SettingsPage() {
@@ -40,7 +37,12 @@ export default function SettingsPage() {
     signOutApp,
   } = useAuth();
   const settings = useLiveQuery(() => getSettings(), []);
-  const users = useLiveQuery(() => db.users.orderBy("createdAt").toArray(), []);
+  const primaryId = usePrimaryUserId();
+  const profileUser = useLiveQuery(
+    async () => (primaryId ? await db.users.get(primaryId) : undefined),
+    [primaryId],
+  );
+  const userCount = useLiveQuery(() => db.users.count(), []);
 
   const [apiKey, setApiKey] = useState("");
   const [apiKeyBackup, setApiKeyBackup] = useState("");
@@ -94,52 +96,11 @@ export default function SettingsPage() {
     }
   }
 
-  async function addUser() {
-    if (!users) return;
-    if (users.length >= 4) {
-      alert("최대 4명까지 등록할 수 있어요.");
-      return;
-    }
-    const name = prompt("새 가족의 이름은?")?.trim();
-    if (!name) return;
-    const t = Date.now();
-    const u: User = {
-      id: uid(),
-      name,
-      color: nextColor(users.map((x) => x.color)),
-      createdAt: t,
-      updatedAt: t,
-    };
-    await db.users.put(u);
-    if (!settings?.activeUserId) await patchSettings({ activeUserId: u.id });
-    else afterUserDataMutation();
-  }
-
   async function renameUser(u: User) {
     const name = prompt("새 이름을 입력하세요", u.name)?.trim();
     if (!name) return;
     await db.users.put({ ...u, name, updatedAt: Date.now() });
     afterUserDataMutation();
-  }
-
-  async function removeUser(u: User) {
-    if (!confirm(`${u.name}님과 관련된 모든 기록을 삭제할까요?`)) return;
-    const mealIds = await db.meals.where("userId").equals(u.id).primaryKeys();
-    const healthIds = await db.health.where("userId").equals(u.id).primaryKeys();
-    await db.transaction("rw", db.users, db.meals, db.health, async () => {
-      await db.users.delete(u.id);
-      await db.meals.where("userId").equals(u.id).delete();
-      await db.health.where("userId").equals(u.id).delete();
-    });
-    if (settings?.activeUserId === u.id) {
-      const remain = await db.users.toArray();
-      await patchSettings({ activeUserId: remain[0]?.id });
-    }
-    await registerCloudDeletes({
-      meals: mealIds.map(String),
-      health: healthIds.map(String),
-      members: [u.id],
-    });
   }
 
   async function changeColor(u: User, color: string) {
@@ -334,55 +295,42 @@ export default function SettingsPage() {
       </section>
 
       <section className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Users size={16} className="text-brand-400" /> 가족 ({users?.length ?? 0}/4)
-          </h2>
-          {users && users.length < 4 && (
-            <button onClick={addUser} className="btn-secondary py-1.5 text-xs">
-              <Plus size={14} /> 추가
-            </button>
-          )}
-        </div>
-
-        <ul className="space-y-2">
-          {users?.map((u) => (
-            <li
-              key={u.id}
-              className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-2"
-            >
-              <label className="relative cursor-pointer">
-                <span
-                  className="flex h-10 w-10 items-center justify-center rounded-xl text-base font-bold text-white"
-                  style={{ backgroundColor: u.color }}
-                >
-                  {u.name.slice(0, 1)}
-                </span>
-                <input
-                  type="color"
-                  value={u.color}
-                  onChange={(e) => changeColor(u, e.target.value)}
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                />
-              </label>
-              <button
-                onClick={() => renameUser(u)}
-                className="flex-1 text-left text-sm font-medium text-slate-100 hover:underline"
+        <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
+          <UserRound size={16} className="text-brand-400" /> 프로필
+        </h2>
+        {userCount !== undefined && userCount > 1 && (
+          <p className="mb-3 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
+            예전 데이터에 프로필이 여러 개 남아 있을 수 있어요. 앱은 하나의 프로필만 사용합니다. 정리하려면 아래{" "}
+            <strong className="text-amber-50">모든 데이터 삭제</strong> 후 다시 시작해 주세요.
+          </p>
+        )}
+        {profileUser ? (
+          <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-2">
+            <label className="relative cursor-pointer">
+              <span
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-base font-bold text-white"
+                style={{ backgroundColor: profileUser.color }}
               >
-                {u.name}
-              </button>
-              {users.length > 1 && (
-                <button
-                  onClick={() => removeUser(u)}
-                  className="rounded-lg p-2 text-slate-500 hover:text-rose-400"
-                  aria-label="삭제"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+                {profileUser.name.slice(0, 1)}
+              </span>
+              <input
+                type="color"
+                value={profileUser.color}
+                onChange={(e) => changeColor(profileUser, e.target.value)}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => renameUser(profileUser)}
+              className="flex-1 text-left text-sm font-medium text-slate-100 hover:underline"
+            >
+              {profileUser.name}
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">프로필을 불러오는 중이에요.</p>
+        )}
       </section>
 
       <section className="card p-4">

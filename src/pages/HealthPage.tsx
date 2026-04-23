@@ -21,13 +21,13 @@ import {
 import HealthScoreRing from "../components/HealthScoreRing";
 import HealthPhotoViewport from "../components/HealthPhotoViewport";
 import PhotoUpload from "../components/PhotoUpload";
-import UserSelector from "../components/UserSelector";
+import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
 import { blobUrl } from "../lib/image";
 import { dateKey, formatKoDate } from "../lib/utils";
 
 export default function HealthPage() {
   const settings = useLiveQuery(() => getSettings(), []);
-  const userId = settings?.activeUserId;
+  const userId = usePrimaryUserId();
   const [pickedType, setPickedType] = useState<HealthRecordType>("checkup");
 
   const records = useLiveQuery(
@@ -150,8 +150,6 @@ export default function HealthPage() {
           내 건강 점수
         </h1>
       </header>
-
-      <UserSelector />
 
       <section className="card flex items-center gap-4 p-5">
         <HealthScoreRing score={latest?.healthScore} />
