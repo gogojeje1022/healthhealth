@@ -195,9 +195,9 @@ export default function HealthPage() {
         {!settings?.geminiApiKey && (
           <Link
             to="/settings"
-            className="mt-3 block rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200"
+            className="mt-3 block rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-2 text-xs text-slate-400"
           >
-            ⚠ AI 점수 산출을 위해 설정에서 Gemini API 키를 등록하세요.
+            AI 분석·점수는 설정에서 키를 저장한 뒤 사용할 수 있어요.
           </Link>
         )}
       </section>

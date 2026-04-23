@@ -68,9 +68,9 @@ export default function DayPage() {
       {!settings?.geminiApiKey && (
         <Link
           to="/settings"
-          className="card border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-amber-200"
+          className="card border-slate-700 bg-slate-900/40 px-4 py-3 text-xs text-slate-400"
         >
-          ⚠ AI 분석을 위해 설정에서 Gemini API 키를 등록해주세요. 사진 저장은 가능합니다.
+          AI 분석은 설정에서 키를 저장한 뒤 사용할 수 있어요. 사진만 올리는 것은 그대로 가능합니다.
         </Link>
       )}
 
@@ -339,7 +339,7 @@ function AnalysisBlock({
         <Sparkles size={14} /> AI 분석 시작
       </button>
     ) : (
-      <p className="text-xs text-slate-500">설정에서 API 키를 추가하면 AI 분석이 가능합니다.</p>
+      <p className="text-xs text-slate-500">설정에서 키를 저장해 두면 여기서도 분석이 돼요.</p>
     );
   }
 

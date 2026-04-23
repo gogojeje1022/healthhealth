@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Cloud, Loader2, LogIn } from "lucide-react";
+import { Cloud, Loader2, LogIn, LogOut } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 /** 메인 등 — Firebase 미연결 시 Google 로그인 유도 */
@@ -14,6 +13,7 @@ export default function FirebaseLoginCard() {
     clearSignInError,
     refreshUser,
     signInWithGoogle,
+    signOutApp,
   } = useAuth();
 
   useEffect(() => {
@@ -34,19 +34,27 @@ export default function FirebaseLoginCard() {
   if (user) {
     return (
       <section className="card border-sky-500/25 bg-sky-500/5 px-4 py-3">
-        <p className="text-xs text-sky-200/90">
-          <Cloud size={14} className="mr-1 inline align-text-bottom" />
-          Google 연결됨{" "}
-          <span className="font-medium text-sky-100">
-            {user.email ?? user.displayName ?? "계정"}
-          </span>
-        </p>
-        <p className="mt-1 text-[11px] text-slate-500">
-          다른 기기와 맞추려면{" "}
-          <Link to="/settings" className="text-brand-400 underline">
-            설정 → 동기화
-          </Link>
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-sky-200/90">
+              <Cloud size={14} className="mr-1 inline align-text-bottom" />
+              Google 연결됨{" "}
+              <span className="font-medium text-sky-100">
+                {user.email ?? user.displayName ?? "계정"}
+              </span>
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              기록을 바꾸면 잠시 뒤 자동으로 클라우드와 맞춰요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void signOutApp()}
+            className="btn-secondary inline-flex shrink-0 items-center gap-1 py-1.5 pl-2 pr-2.5 text-xs"
+          >
+            <LogOut size={14} /> 로그아웃
+          </button>
+        </div>
       </section>
     );
   }
@@ -56,7 +64,9 @@ export default function FirebaseLoginCard() {
       <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-sky-100">
         <Cloud size={16} className="text-sky-400" /> 클라우드에 기록 맞추기
       </h2>
-      <p className="mb-3 text-xs text-sky-200/80">Google로 로그인 후 설정에서 동기화하면 여러 기기와 맞출 수 있어요.</p>
+      <p className="mb-3 text-xs text-sky-200/80">
+        Google로 로그인하면 여러 기기에서 같은 데이터를 자동으로 맞출 수 있어요.
+      </p>
       <button
         type="button"
         disabled={signInBusy}

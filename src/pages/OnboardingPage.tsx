@@ -16,6 +16,7 @@ export default function OnboardingPage() {
     { id: uid(), name: "", color: nextColor([]) },
   ]);
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyBackup, setApiKeyBackup] = useState("");
   const [busy, setBusy] = useState(false);
 
   function addMember() {
@@ -55,6 +56,7 @@ export default function OnboardingPage() {
         onboarded: true,
         activeUserId: valid[0].id,
         geminiApiKey: apiKey.trim() || undefined,
+        geminiApiKeyBackup: apiKeyBackup.trim() || undefined,
       });
       // SPA navigate 만으로는 라이브 쿼리/해시 라우터 타이밍이 어긋날 수 있어,
       // 온보딩 직후에는 앱 루트로 한 번 이동해 상태를 확실히 맞춘다.
@@ -88,11 +90,11 @@ export default function OnboardingPage() {
           AI가 메뉴를 분석하고 건강 점수를 알려드려요.
         </p>
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
-          이미 클라우드에 데이터가 있나요? 아래에서 로그인한 뒤{" "}
+          이미 클라우드에 데이터가 있나요? 아래에서 Google로 로그인하면 자동으로 맞춰져요. 계정 전환은{" "}
           <Link to="/settings" className="font-medium text-brand-400 underline">
-            설정 → 동기화
+            설정
           </Link>
-          로 가져올 수 있어요.
+          에서 로그아웃 후 다시 로그인하면 됩니다.
         </p>
       </header>
 
@@ -153,25 +155,32 @@ export default function OnboardingPage() {
 
       <section className="mb-8">
         <h2 className="mb-2 text-sm font-semibold text-slate-300">
-          Gemini API 키 <span className="text-slate-500">(선택, 나중에 설정 가능)</span>
+          Gemini API 키 <span className="text-slate-500">(선택 · 나중에 설정해도 됨)</span>
         </h2>
-        <p className="mb-2 text-xs leading-relaxed text-slate-500">
-          AI 분석 기능을 쓰려면 무료 Gemini API 키가 필요해요.
-          <br />
+        <p className="mb-3 text-xs text-slate-500">
+          여기서 주 키·보조 키를 넣어 두면 저장 후부터는 입력 없이 분석에 씁니다.{" "}
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
             rel="noreferrer"
             className="text-brand-400 underline"
           >
-            aistudio.google.com/apikey
+            키 발급
           </a>
-          에서 1분이면 발급받을 수 있어요.
         </p>
+        <label className="mb-1 block text-[11px] text-slate-500">주 API 키</label>
         <input
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="AIzaSy..."
+          className="input mb-3"
+          autoComplete="off"
+        />
+        <label className="mb-1 block text-[11px] text-slate-500">보조 API 키 (선택)</label>
+        <input
+          value={apiKeyBackup}
+          onChange={(e) => setApiKeyBackup(e.target.value)}
+          placeholder="주 키를 못 쓸 때만 자동 시도"
           className="input"
           autoComplete="off"
         />

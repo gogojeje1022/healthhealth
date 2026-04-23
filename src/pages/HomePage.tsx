@@ -110,17 +110,13 @@ export default function HomePage() {
       {!settings?.geminiApiKey && (
         <Link
           to="/settings"
-          className="card flex items-center justify-between gap-3 border-amber-500/30 bg-amber-500/5 p-4"
+          className="card flex items-center justify-between gap-3 border-slate-700 bg-slate-900/40 p-4"
         >
           <div>
-            <p className="text-sm font-semibold text-amber-300">
-              AI 분석을 사용하려면 API 키가 필요해요
-            </p>
-            <p className="mt-1 text-xs text-amber-200/80">
-              설정에서 무료 Gemini API 키를 추가하세요.
-            </p>
+            <p className="text-sm font-medium text-slate-200">AI 분석 쓰기</p>
+            <p className="mt-1 text-xs text-slate-500">설정에서 키를 한 번 저장해 주세요.</p>
           </div>
-          <ChevronRight size={20} className="text-amber-300" />
+          <ChevronRight size={20} className="text-slate-500" />
         </Link>
       )}
     </div>

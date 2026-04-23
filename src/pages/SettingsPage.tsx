@@ -15,7 +15,6 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { formatCloudSyncError, syncCloudWithLocal } from "../lib/cloudSync";
 import { afterUserDataMutation, db, getSettings, patchSettings, uid } from "../lib/db";
 import { pingGemini } from "../lib/ai";
 import { nextColor } from "../lib/utils";
@@ -41,12 +40,6 @@ export default function SettingsPage() {
   const [model, setModel] = useState("gemini-2.5-flash-lite");
   const [show, setShow] = useState(false);
   const [pingState, setPingState] = useState<
-    | { kind: "idle" }
-    | { kind: "busy" }
-    | { kind: "ok" }
-    | { kind: "fail"; msg: string }
-  >({ kind: "idle" });
-  const [syncState, setSyncState] = useState<
     | { kind: "idle" }
     | { kind: "busy" }
     | { kind: "ok" }
@@ -141,19 +134,6 @@ export default function SettingsPage() {
     afterUserDataMutation();
   }
 
-  async function runCloudSync() {
-    setSyncState({ kind: "busy" });
-    try {
-      await syncCloudWithLocal();
-      setSyncState({ kind: "ok" });
-    } catch (e) {
-      setSyncState({
-        kind: "fail",
-        msg: formatCloudSyncError(e),
-      });
-    }
-  }
-
   async function wipeAll() {
     if (!confirm("⚠ 정말 모든 데이터를 삭제할까요? 되돌릴 수 없어요.")) return;
     if (!confirm("정말로 확실한가요?")) return;
@@ -183,7 +163,7 @@ export default function SettingsPage() {
 
       <section className="card p-4">
         <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
-          <Cloud size={16} className="text-sky-400" /> 계정 · 클라우드 동기화
+          <Cloud size={16} className="text-sky-400" /> Google 계정
         </h2>
 
         {!firebaseReady ? (
@@ -244,45 +224,20 @@ export default function SettingsPage() {
         )}
 
         {firebaseReady && !authLoading && user && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm">
               <span className="truncate text-slate-300">{user.email ?? user.displayName ?? "Google 계정"}</span>
-            <button
-              type="button"
-              onClick={() => signOutApp()}
-              className="btn-secondary inline-flex shrink-0 items-center gap-1 py-1.5 pl-2 pr-2.5 text-xs"
-            >
-              <LogOut size={14} /> 로그아웃
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => void signOutApp()}
+                className="btn-secondary inline-flex shrink-0 items-center gap-1 py-1.5 pl-2 pr-2.5 text-xs"
+              >
+                <LogOut size={14} /> 로그아웃
+              </button>
+            </div>
             <p className="text-[11px] text-slate-500">
-              식단·건강·가족 정보를 바꾸면 잠시 뒤 자동으로 맞춥니다. 바로 당겨 오려면 아래를 누르세요.
+              로그인한 상태에서 기록을 바꾸면 잠시 뒤 Firestore에 자동 반영됩니다.
             </p>
-            <button
-              type="button"
-              disabled={syncState.kind === "busy"}
-              onClick={runCloudSync}
-              className="btn-secondary flex w-full items-center justify-center gap-2 py-2.5 text-sm"
-            >
-              {syncState.kind === "busy" ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
-              동기화
-            </button>
-            {settings?.lastCloudSyncAt != null && (
-              <p className="text-[11px] text-slate-500">
-                마지막 동기화: {new Date(settings.lastCloudSyncAt).toLocaleString("ko-KR")}
-              </p>
-            )}
-            {syncState.kind === "ok" && (
-              <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-                <CheckCircle2 size={14} /> 동기화했어요.
-              </p>
-            )}
-            {syncState.kind === "fail" && (
-              <p className="flex items-start gap-1.5 text-xs text-rose-400">
-                <TriangleAlert size={14} className="mt-0.5 shrink-0" />
-                <span className="break-all">{syncState.msg}</span>
-              </p>
-            )}
           </div>
         )}
       </section>
@@ -292,18 +247,19 @@ export default function SettingsPage() {
           <KeyRound size={16} className="text-brand-400" /> Gemini API 키
         </h2>
         <p className="mb-3 text-xs text-slate-400">
-          AI 식단/건강 분석에 사용됩니다.{" "}
+          주 키와 보조 키를 한 번 저장해 두면, 이 기기에서는 따로 입력하지 않아도 분석에 계속 씁니다.{" "}
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
             rel="noreferrer"
             className="text-brand-400 underline"
           >
-            무료 발급
+            키 발급
           </a>
         </p>
 
         <div className="space-y-2">
+          <label className="mb-1 block text-xs text-slate-400">주 API 키</label>
           <div className="relative">
             <input
               type={show ? "text" : "password"}
@@ -325,21 +281,17 @@ export default function SettingsPage() {
 
           <div>
             <label className="mb-1 block text-xs text-slate-400">
-              대체 API 키 <span className="text-slate-600">(선택)</span>
+              보조 API 키 <span className="text-slate-600">(선택)</span>
             </label>
             <input
               type={show ? "text" : "password"}
               value={apiKeyBackup}
               onChange={(e) => setApiKeyBackup(e.target.value)}
-              placeholder="주 키가 429 한도일 때만 자동 사용"
+              placeholder="주 키가 막힐 때만 자동으로 이어서 시도"
               className="input"
               autoComplete="off"
               spellCheck={false}
             />
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-              다른 Google Cloud 프로젝트에서 발급한 키를 넣으면, 무료 한도가 다른 풀을 쓸 수 있습니다. Google
-              이용약관을 지켜 주세요.
-            </p>
           </div>
 
           <div>
@@ -349,18 +301,13 @@ export default function SettingsPage() {
               onChange={(e) => setModel(e.target.value)}
               className="input"
             >
-              <option value="gemini-2.5-flash-lite">
-                gemini-2.5-flash-lite (기본 · AI Studio 무료 한도와 동일 계열)
-              </option>
-              <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (구버전, 한도 풀이 다를 수 있음)</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash (더 정교, 한도 빨리 찰 수 있음)</option>
+              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (기본)</option>
+              <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
               <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-              <option value="gemini-1.5-pro">gemini-1.5-pro (고급)</option>
+              <option value="gemini-1.5-pro">gemini-1.5-pro</option>
             </select>
-            <p className="mt-1 text-[11px] text-slate-500">
-              무료 API는 Google 정책·모델별로 한도가 다릅니다. 429가 나오면 잠시 후 재시도하거나 대체 키·다른 모델을
-              써 보세요.
-            </p>
+            <p className="mt-1 text-[11px] text-slate-500">보통은 기본 모델 그대로 두면 됩니다.</p>
           </div>
 
           <div className="flex gap-2">
@@ -382,7 +329,7 @@ export default function SettingsPage() {
 
           {pingState.kind === "ok" && (
             <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <CheckCircle2 size={14} /> 연결 성공! 분석을 사용할 수 있어요.
+              <CheckCircle2 size={14} /> 연결 확인됐어요.
             </p>
           )}
           {pingState.kind === "fail" && (
@@ -398,11 +345,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-          키는 이 브라우저 IndexedDB에 저장됩니다. Firestore 동기화에는 포함되지 않으며, Gemini API 호출에만
-          쓰입니다. 웹앱은 코드·저장소를 보면 키가 노출될 수 있으니, Google Cloud에서 키 제한(HTTP 리퍼러 등)을
-          거는 것을 권장합니다. 별도 비밀번호 암호화는 하지 않습니다.
-        </p>
+        <p className="mt-3 text-[11px] text-slate-500">저장한 키는 이 기기에만 남고, 가족 데이터 클라우드 동기화에는 올라가지 않습니다.</p>
       </section>
 
       <section className="card p-4">

@@ -47,7 +47,7 @@ export default function App() {
     return <Navigate to="/" replace />;
   }
 
-  // 클라우드 복원: 온보딩 전에도 설정에서 Google 로그인·동기화 가능
+  // 클라우드 복원: 온보딩 전에도 설정에서 Google 로그인 가능
   if (needsOnboarding && !isOnboardingRoute && !isSettingsRoute) {
     return <Navigate to="/onboarding" replace />;
   }
