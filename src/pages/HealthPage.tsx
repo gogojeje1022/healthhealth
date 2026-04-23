@@ -188,7 +188,7 @@ export default function HealthPage() {
         </div>
 
         <PhotoUpload
-          label={`${HEALTH_TYPE_LABELS[pickedType]} 사진 올리기`}
+          label={`${HEALTH_TYPE_LABELS[pickedType]} 사진 찍기`}
           onPicked={addRecord}
           disabled={!userId}
         />
@@ -237,43 +237,81 @@ function RecordCard({
   canAnalyze: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const url = blobUrl(record.thumbnail || record.photo);
+  const [showFull, setShowFull] = useState(false);
+  const thumbUrl = blobUrl(record.thumbnail || record.photo);
+  const fullUrl = blobUrl(record.photo) ?? blobUrl(record.thumbnail);
 
   return (
     <div className="card overflow-hidden">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 p-3 text-left"
-      >
-        {url ? (
-          <img
-            src={url}
-            alt="기록"
-            className="h-14 w-14 shrink-0 rounded-xl border border-slate-800 object-cover"
-          />
+      <div className="flex w-full items-stretch gap-3 p-3">
+        {thumbUrl ? (
+          <button
+            type="button"
+            onClick={() => setShowFull(true)}
+            className="shrink-0 self-start rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+            aria-label="사진 크게 보기"
+          >
+            <img src={thumbUrl} alt="" className="h-14 w-14 rounded-xl object-cover" />
+          </button>
         ) : (
           <div className="h-14 w-14 shrink-0 rounded-xl bg-slate-800" />
         )}
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="min-w-0 flex-1 text-left"
+        >
           <p className="text-xs text-slate-400">
             {HEALTH_TYPE_LABELS[record.type]} · {formatKoDate(record.recordDate)}
           </p>
           <p className="mt-0.5 text-sm font-medium leading-snug text-slate-100 break-words whitespace-pre-wrap">
             {record.summary ?? statusLabel(record)}
           </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex shrink-0 flex-col items-end justify-center gap-1 self-stretch text-slate-400"
+          aria-expanded={open}
+        >
           {record.healthScore !== undefined && (
             <span className="rounded-full bg-brand-500/15 px-2 py-1 text-sm font-bold text-brand-300">
               {record.healthScore}
             </span>
           )}
           {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+      </div>
+
+      {showFull && fullUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/88 p-3"
+          onClick={() => setShowFull(false)}
+        >
+          <img
+            src={fullUrl}
+            alt="원본"
+            className="max-h-[92vh] max-w-full object-contain"
+          />
+          <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-slate-400">탭하여 닫기</p>
         </div>
-      </button>
+      )}
 
       {open && (
         <div className="space-y-3 border-t border-slate-800 p-4">
+          {record.photo && (
+            <button
+              type="button"
+              onClick={() => setShowFull(true)}
+              className="block w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60"
+            >
+              <img
+                src={blobUrl(record.photo)}
+                alt=""
+                className="mx-auto max-h-72 w-full object-contain"
+              />
+            </button>
+          )}
           {record.analysisStatus === "analyzing" && (
             <div className="flex items-center gap-2 rounded-xl bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
               <Loader2 size={16} className="animate-spin text-brand-400" />

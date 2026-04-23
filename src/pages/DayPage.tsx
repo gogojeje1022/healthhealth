@@ -284,10 +284,15 @@ function PhotoBlock({
 
       {showFull && fullUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/88 p-3"
           onClick={() => setShowFull(false)}
         >
-          <img src={fullUrl} alt="원본" className="max-h-full max-w-full rounded-xl" />
+          <img
+            src={fullUrl}
+            alt="원본"
+            className="max-h-[92vh] max-w-full object-contain"
+          />
+          <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-slate-400">탭하여 닫기</p>
         </div>
       )}
 
