@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Camera, ImagePlus, Loader2 } from "lucide-react";
-import { compressImage, makeThumbnail } from "../lib/image";
+import { compressImage, makeThumbnail, type CompressOptions } from "../lib/image";
 import { cls } from "../lib/utils";
 
 interface Props {
@@ -12,6 +12,8 @@ interface Props {
   preferCamera?: boolean;
   variant?: "primary" | "ghost";
   disabled?: boolean;
+  /** 기본값보다 크게/선명하게 (건강검진·인바디 등 문서 사진용) */
+  compressOptions?: CompressOptions;
 }
 
 export default function PhotoUpload({
@@ -21,6 +23,7 @@ export default function PhotoUpload({
   preferCamera = true,
   variant = "primary",
   disabled,
+  compressOptions,
 }: Props) {
   const camRef = useRef<HTMLInputElement>(null);
   const galRef = useRef<HTMLInputElement>(null);
@@ -30,7 +33,11 @@ export default function PhotoUpload({
     if (!file) return;
     setBusy(true);
     try {
-      const compressed = await compressImage(file, { maxDimension: 1280, quality: 0.85 });
+      const compressed = await compressImage(file, {
+        maxDimension: 1280,
+        quality: 0.85,
+        ...compressOptions,
+      });
       const thumb = await makeThumbnail(compressed);
       await onPicked(compressed, thumb);
     } catch (e) {

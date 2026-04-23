@@ -191,6 +191,7 @@ export default function HealthPage() {
           label={`${HEALTH_TYPE_LABELS[pickedType]} 사진 찍기`}
           onPicked={addRecord}
           disabled={!userId}
+          compressOptions={{ maxDimension: 2400, quality: 0.92 }}
         />
         {!settings?.geminiApiKey && (
           <Link
@@ -247,9 +248,9 @@ function RecordCard({
         {thumbUrl ? (
           <button
             type="button"
-            onClick={() => setShowFull(true)}
+            onClick={() => setOpen((v) => !v)}
             className="shrink-0 self-start rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
-            aria-label="사진 크게 보기"
+            aria-label={open ? "기록 접기" : "기록 펼치기"}
           >
             <img src={thumbUrl} alt="" className="h-14 w-14 rounded-xl object-cover" />
           </button>
@@ -291,24 +292,29 @@ function RecordCard({
           <img
             src={fullUrl}
             alt="원본"
-            className="max-h-[92vh] max-w-full object-contain"
+            decoding="async"
+            className="max-h-[min(92vh,100dvh)] w-auto max-w-[min(100%,96vw)] object-contain [image-rendering:high-quality]"
           />
-          <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-slate-400">탭하여 닫기</p>
+          <p className="pointer-events-none absolute bottom-4 left-0 right-0 text-center text-xs text-slate-400">
+            탭하여 닫기
+          </p>
         </div>
       )}
 
       {open && (
         <div className="space-y-3 border-t border-slate-800 p-4">
-          {record.photo && (
+          {(record.photo ?? record.thumbnail) && (
             <button
               type="button"
               onClick={() => setShowFull(true)}
               className="block w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60"
+              aria-label="사진 원본 크기로 보기"
             >
               <img
-                src={blobUrl(record.photo)}
+                src={blobUrl(record.photo ?? record.thumbnail)}
                 alt=""
-                className="mx-auto max-h-72 w-full object-contain"
+                decoding="async"
+                className="mx-auto max-h-72 w-full object-contain [image-rendering:high-quality]"
               />
             </button>
           )}

@@ -219,9 +219,10 @@ async function healthToStored(h: HealthRecord): Promise<HealthStored> {
   if (!source) return base;
 
   const attempts: { maxDimension: number; quality: number }[] = [
-    { maxDimension: 960, quality: 0.72 },
-    { maxDimension: 800, quality: 0.62 },
-    { maxDimension: 640, quality: 0.55 },
+    { maxDimension: 1600, quality: 0.8 },
+    { maxDimension: 1280, quality: 0.72 },
+    { maxDimension: 960, quality: 0.64 },
+    { maxDimension: 720, quality: 0.55 },
     { maxDimension: 520, quality: 0.5 },
   ];
 
