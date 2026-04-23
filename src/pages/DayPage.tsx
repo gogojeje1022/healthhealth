@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   ArrowLeft,
@@ -108,13 +108,16 @@ interface SlotProps {
 
 function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName }: SlotProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const [searchParams] = useSearchParams();
 
-  // 해시(#breakfast 등) 자동 스크롤
+  // HashRouter에서는 #/경로#슬롯 이 한 fragment에 섞여 해시 매칭이 깨짐 → ?slot= 로 이동
   useEffect(() => {
-    if (window.location.hash === `#${slot}`) {
-      setTimeout(() => sectionRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    }
-  }, [slot]);
+    if (searchParams.get("slot") !== slot) return;
+    const t = window.setTimeout(() => {
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [slot, searchParams]);
 
   async function createOrUpdateMealWithPhoto(photo: Blob, thumbnail: Blob) {
     const now = Date.now();

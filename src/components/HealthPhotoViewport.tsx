@@ -48,6 +48,14 @@ export default function HealthPhotoViewport({ src }: Props) {
     panY: number;
   } | null>(null);
   const pinchRef = useRef<{ dist: number; startZoom: number } | null>(null);
+  /** 모바일 한 손가락 팬(포인터 이벤트는 마우스만 쓰고 터치는 여기서 처리) */
+  const touchPanRef = useRef<{
+    identifier: number;
+    startX: number;
+    startY: number;
+    startPanX: number;
+    startPanY: number;
+  } | null>(null);
 
   const onImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const im = e.currentTarget;
@@ -110,6 +118,24 @@ export default function HealthPhotoViewport({ src }: Props) {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  /** 안드로이드 등에서 확대 후 팬/핀치 시 페이지 스크롤을 막으려면 passive: false 필요 */
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const blockScrollIfHandling = (e: TouchEvent) => {
+      const z = zoomRef.current;
+      const pinching = e.touches.length === 2 && pinchRef.current !== null;
+      const panning =
+        e.touches.length === 1 &&
+        z > MIN_ZOOM &&
+        touchPanRef.current !== null &&
+        e.touches[0]?.identifier === touchPanRef.current.identifier;
+      if (pinching || panning) e.preventDefault();
+    };
+    el.addEventListener("touchmove", blockScrollIfHandling, { passive: false });
+    return () => el.removeEventListener("touchmove", blockScrollIfHandling);
+  }, []);
+
   const bumpZoom = (delta: number) => {
     setZoom((z) =>
       Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round((z + delta) * 100) / 100)),
@@ -151,27 +177,65 @@ export default function HealthPhotoViewport({ src }: Props) {
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
+      touchPanRef.current = null;
       const [a, b] = [e.touches[0], e.touches[1]];
       const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       pinchRef.current = { dist, startZoom: zoomRef.current };
+      return;
+    }
+    if (e.touches.length === 1 && zoomRef.current > MIN_ZOOM) {
+      const t = e.touches[0];
+      const p = panRef.current;
+      touchPanRef.current = {
+        identifier: t.identifier,
+        startX: t.clientX,
+        startY: t.clientY,
+        startPanX: p.x,
+        startPanY: p.y,
+      };
     }
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length !== 2 || !pinchRef.current) return;
-    e.preventDefault();
-    const [a, b] = [e.touches[0], e.touches[1]];
-    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const ratio = dist / pinchRef.current.dist;
-    const nz = Math.min(
-      MAX_ZOOM,
-      Math.max(MIN_ZOOM, Math.round(pinchRef.current.startZoom * ratio * 100) / 100),
-    );
-    setZoom(nz);
+    if (e.touches.length === 2 && pinchRef.current) {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const ratio = dist / pinchRef.current.dist;
+      const nz = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, Math.round(pinchRef.current.startZoom * ratio * 100) / 100),
+      );
+      setZoom(nz);
+      return;
+    }
+    const tp = touchPanRef.current;
+    if (e.touches.length !== 1 || !tp) return;
+    const t = e.touches[0];
+    if (t.identifier !== tp.identifier) return;
+    const dx = t.clientX - tp.startX;
+    const dy = t.clientY - tp.startY;
+    setPan(clampPan(tp.startPanX + dx, tp.startPanY + dy, cw, ch, dispW, dispH));
+  };
+
+  const endTouchPan = (e: React.TouchEvent) => {
+    const tp = touchPanRef.current;
+    if (!tp) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === tp.identifier) {
+        touchPanRef.current = null;
+        break;
+      }
+    }
   };
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (e.touches.length < 2) pinchRef.current = null;
+    endTouchPan(e);
+  };
+
+  const onTouchCancel = () => {
+    pinchRef.current = null;
+    touchPanRef.current = null;
   };
 
   return (
@@ -186,6 +250,7 @@ export default function HealthPhotoViewport({ src }: Props) {
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
         style={{ cursor: zoom > MIN_ZOOM ? "grab" : "default" }}
       >
         {!ready && (
@@ -243,7 +308,7 @@ export default function HealthPhotoViewport({ src }: Props) {
       </div>
 
       <p className="pointer-events-none px-2 pb-2 pt-1 text-center text-[10px] leading-tight text-slate-500">
-        휠·버튼 확대 · 드래그 이동 · 모바일 두 손가락 · ↺ 처음 배율
+        휠·버튼 확대 · 드래그 이동 · 모바일 한 손 이동·두 손 확대 · ↺ 처음 배율
       </p>
     </div>
   );

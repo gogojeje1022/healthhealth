@@ -84,7 +84,9 @@ export default function HomePage() {
             return (
               <li key={slot}>
                 <button
-                  onClick={() => navigate(`/day/${selected}#${slot}`)}
+                  onClick={() =>
+                    navigate({ pathname: `/day/${selected}`, search: `?slot=${slot}` })
+                  }
                   className="flex h-full w-full flex-col items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/40 p-2 hover:bg-slate-800/40"
                 >
                   <span className="text-xl">{MEAL_SLOT_EMOJI[slot]}</span>
