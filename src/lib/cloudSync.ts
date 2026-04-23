@@ -7,19 +7,26 @@ import {
   setDoc,
   writeBatch,
 } from "firebase/firestore";
-import { deleteObject, getBytes, ref, uploadBytes, type FirebaseStorage } from "firebase/storage";
 import type { AppSettings, HealthRecord, Meal, User } from "../types";
 import { db as dexieDb, getSettings, SETTINGS_KEY } from "./db";
-import { getFirestoreDb, getFirebaseAuth, getStorageBucket } from "./firebaseApp";
+import { getFirestoreDb, getFirebaseAuth } from "./firebaseApp";
+import { base64ToBlob, blobToBase64, compressImage, makeThumbnail } from "./image";
 
 const BATCH = 400;
+/** Firestore 문서 상한 1MiB — Base64·메타 여유 */
+const DOC_SAFE_BYTES = 900_000;
 
 export type MealStored = Omit<Meal, "photo" | "thumbnail"> & {
+  photoBase64?: string;
+  photoMimeType?: string;
+  /** 구버전(Storage) 동기화 잔여 필드 — 읽을 때 무시 */
   photoPath?: string;
   thumbnailPath?: string;
 };
 
 export type HealthStored = Omit<HealthRecord, "photo" | "thumbnail"> & {
+  photoBase64?: string;
+  photoMimeType?: string;
   photoPath?: string;
   thumbnailPath?: string;
 };
@@ -39,24 +46,29 @@ function cleanForFirestore<T extends object>(o: T): T {
   return JSON.parse(JSON.stringify(o)) as T;
 }
 
-async function downloadBlob(st: FirebaseStorage, path: string): Promise<Blob> {
-  const bytes = await getBytes(ref(st, path));
-  return new Blob([bytes], { type: "image/jpeg" });
+function docJsonSize(data: object): number {
+  return new Blob([JSON.stringify(data)]).size;
 }
 
-async function storedToMeal(st: FirebaseStorage, s: MealStored): Promise<Meal> {
-  const { photoPath, thumbnailPath, ...rest } = s;
+async function storedToMeal(s: MealStored): Promise<Meal> {
+  const { photoPath: _p, thumbnailPath: _t, photoBase64, photoMimeType, ...rest } = s;
   const meal: Meal = { ...rest };
-  if (photoPath) meal.photo = await downloadBlob(st, photoPath);
-  if (thumbnailPath) meal.thumbnail = await downloadBlob(st, thumbnailPath);
+  if (photoBase64 && photoMimeType) {
+    const blob = base64ToBlob(photoBase64, photoMimeType);
+    meal.photo = blob;
+    meal.thumbnail = await makeThumbnail(blob);
+  }
   return meal;
 }
 
-async function storedToHealth(st: FirebaseStorage, s: HealthStored): Promise<HealthRecord> {
-  const { photoPath, thumbnailPath, ...rest } = s;
+async function storedToHealth(s: HealthStored): Promise<HealthRecord> {
+  const { photoPath: _p, thumbnailPath: _t, photoBase64, photoMimeType, ...rest } = s;
   const rec: HealthRecord = { ...rest };
-  if (photoPath) rec.photo = await downloadBlob(st, photoPath);
-  if (thumbnailPath) rec.thumbnail = await downloadBlob(st, thumbnailPath);
+  if (photoBase64 && photoMimeType) {
+    const blob = base64ToBlob(photoBase64, photoMimeType);
+    rec.photo = blob;
+    rec.thumbnail = await makeThumbnail(blob);
+  }
   return rec;
 }
 
@@ -76,11 +88,7 @@ function mergeUsers(local: User[], remote: User[]): User[] {
   return out;
 }
 
-async function mergeMeals(
-  st: FirebaseStorage,
-  local: Meal[],
-  remote: MealStored[],
-): Promise<Meal[]> {
+async function mergeMeals(local: Meal[], remote: MealStored[]): Promise<Meal[]> {
   const rMap = new Map(remote.map((x) => [x.id, x]));
   const lMap = new Map(local.map((x) => [x.id, x]));
   const ids = new Set([...lMap.keys(), ...rMap.keys()]);
@@ -88,19 +96,15 @@ async function mergeMeals(
   for (const id of ids) {
     const l = lMap.get(id);
     const r = rMap.get(id);
-    if (!l) out.push(await storedToMeal(st, r!));
+    if (!l) out.push(await storedToMeal(r!));
     else if (!r) out.push(l);
     else if (l.updatedAt >= r.updatedAt) out.push(l);
-    else out.push(await storedToMeal(st, r));
+    else out.push(await storedToMeal(r));
   }
   return out;
 }
 
-async function mergeHealth(
-  st: FirebaseStorage,
-  local: HealthRecord[],
-  remote: HealthStored[],
-): Promise<HealthRecord[]> {
+async function mergeHealth(local: HealthRecord[], remote: HealthStored[]): Promise<HealthRecord[]> {
   const rMap = new Map(remote.map((x) => [x.id, x]));
   const lMap = new Map(local.map((x) => [x.id, x]));
   const ids = new Set([...lMap.keys(), ...rMap.keys()]);
@@ -108,10 +112,10 @@ async function mergeHealth(
   for (const id of ids) {
     const l = lMap.get(id);
     const r = rMap.get(id);
-    if (!l) out.push(await storedToHealth(st, r!));
+    if (!l) out.push(await storedToHealth(r!));
     else if (!r) out.push(l);
     else if (l.updatedAt >= r.updatedAt) out.push(l);
-    else out.push(await storedToHealth(st, r));
+    else out.push(await storedToHealth(r));
   }
   return out;
 }
@@ -141,62 +145,70 @@ async function pullPublicSettings(uid: string): Promise<PublicSettingsDoc | null
   return d.data() as PublicSettingsDoc;
 }
 
-async function deleteObjectSafe(path: string): Promise<void> {
-  try {
-    await deleteObject(ref(getStorageBucket(), path));
-  } catch {
-    /* 없음 */
-  }
-}
-
-async function removeMealStorage(uid: string, mealId: string): Promise<void> {
-  await deleteObjectSafe(`users/${uid}/meals/${mealId}/photo.jpg`);
-  await deleteObjectSafe(`users/${uid}/meals/${mealId}/thumb.jpg`);
-}
-
-async function removeHealthStorage(uid: string, hid: string): Promise<void> {
-  await deleteObjectSafe(`users/${uid}/health/${hid}/photo.jpg`);
-  await deleteObjectSafe(`users/${uid}/health/${hid}/thumb.jpg`);
-}
-
-async function mealToStored(uid: string, st: FirebaseStorage, m: Meal): Promise<MealStored> {
+async function mealToStored(m: Meal): Promise<MealStored> {
   const { photo, thumbnail, ...rest } = m;
   const base: MealStored = { ...rest };
-  if (photo && photo.size > 0) {
-    const p = `users/${uid}/meals/${m.id}/photo.jpg`;
-    await uploadBytes(ref(st, p), photo, { contentType: photo.type || "image/jpeg" });
-    base.photoPath = p;
-  } else {
-    await removeMealStorage(uid, m.id);
+  const source = photo?.size ? photo : thumbnail?.size ? thumbnail : null;
+  if (!source) return base;
+
+  const attempts: { maxDimension: number; quality: number }[] = [
+    { maxDimension: 720, quality: 0.72 },
+    { maxDimension: 640, quality: 0.62 },
+    { maxDimension: 560, quality: 0.55 },
+    { maxDimension: 480, quality: 0.5 },
+  ];
+
+  let lastErr = "Firestore 문서 한도(약 1MB, 무료 플랜)를 넘습니다.";
+  for (const opts of attempts) {
+    const compressed = await compressImage(source, {
+      maxDimension: opts.maxDimension,
+      quality: opts.quality,
+      mimeType: "image/jpeg",
+    });
+    const b64 = await blobToBase64(compressed);
+    const trial: MealStored = {
+      ...base,
+      photoBase64: b64,
+      photoMimeType: "image/jpeg",
+    };
+    const cleaned = cleanForFirestore(trial);
+    if (docJsonSize(cleaned) <= DOC_SAFE_BYTES) return cleaned;
+    lastErr = `식사 기록(${m.date}) 사진이 동기화 한도를 넘깁니다. 더 작은 원본으로 다시 찍거나 해당 날짜 기록을 나눠 주세요.`;
   }
-  if (thumbnail && thumbnail.size > 0) {
-    const p = `users/${uid}/meals/${m.id}/thumb.jpg`;
-    await uploadBytes(ref(st, p), thumbnail, { contentType: thumbnail.type || "image/jpeg" });
-    base.thumbnailPath = p;
-  }
-  return base;
+  throw new Error(lastErr);
 }
 
-async function healthToStored(
-  uid: string,
-  st: FirebaseStorage,
-  h: HealthRecord,
-): Promise<HealthStored> {
+async function healthToStored(h: HealthRecord): Promise<HealthStored> {
   const { photo, thumbnail, ...rest } = h;
   const base: HealthStored = { ...rest };
-  if (photo && photo.size > 0) {
-    const p = `users/${uid}/health/${h.id}/photo.jpg`;
-    await uploadBytes(ref(st, p), photo, { contentType: photo.type || "image/jpeg" });
-    base.photoPath = p;
-  } else {
-    await removeHealthStorage(uid, h.id);
+  const source = photo?.size ? photo : thumbnail?.size ? thumbnail : null;
+  if (!source) return base;
+
+  const attempts: { maxDimension: number; quality: number }[] = [
+    { maxDimension: 960, quality: 0.72 },
+    { maxDimension: 800, quality: 0.62 },
+    { maxDimension: 640, quality: 0.55 },
+    { maxDimension: 520, quality: 0.5 },
+  ];
+
+  let lastErr = "Firestore 문서 한도를 넘습니다.";
+  for (const opts of attempts) {
+    const compressed = await compressImage(source, {
+      maxDimension: opts.maxDimension,
+      quality: opts.quality,
+      mimeType: "image/jpeg",
+    });
+    const b64 = await blobToBase64(compressed);
+    const trial: HealthStored = {
+      ...base,
+      photoBase64: b64,
+      photoMimeType: "image/jpeg",
+    };
+    const cleaned = cleanForFirestore(trial);
+    if (docJsonSize(cleaned) <= DOC_SAFE_BYTES) return cleaned;
+    lastErr = `건강기록(${h.recordDate}) 사진이 동기화 한도를 넘깁니다.`;
   }
-  if (thumbnail && thumbnail.size > 0) {
-    const p = `users/${uid}/health/${h.id}/thumb.jpg`;
-    await uploadBytes(ref(st, p), thumbnail, { contentType: thumbnail.type || "image/jpeg" });
-    base.thumbnailPath = p;
-  }
-  return base;
+  throw new Error(lastErr);
 }
 
 async function deleteRemoteMembersNotIn(uid: string, keep: Set<string>): Promise<void> {
@@ -211,13 +223,7 @@ async function deleteRemoteMealsNotIn(uid: string, keep: Set<string>): Promise<v
   const fs = getFirestoreDb();
   const snap = await getDocs(collection(fs, "users", uid, "meals"));
   for (const d of snap.docs) {
-    if (!keep.has(d.id)) {
-      const data = d.data() as MealStored;
-      if (data.photoPath) await deleteObjectSafe(data.photoPath);
-      if (data.thumbnailPath) await deleteObjectSafe(data.thumbnailPath);
-      else await removeMealStorage(uid, d.id);
-      await deleteDoc(d.ref);
-    }
+    if (!keep.has(d.id)) await deleteDoc(d.ref);
   }
 }
 
@@ -225,13 +231,7 @@ async function deleteRemoteHealthNotIn(uid: string, keep: Set<string>): Promise<
   const fs = getFirestoreDb();
   const snap = await getDocs(collection(fs, "users", uid, "health"));
   for (const d of snap.docs) {
-    if (!keep.has(d.id)) {
-      const data = d.data() as HealthStored;
-      if (data.photoPath) await deleteObjectSafe(data.photoPath);
-      if (data.thumbnailPath) await deleteObjectSafe(data.thumbnailPath);
-      else await removeHealthStorage(uid, d.id);
-      await deleteDoc(d.ref);
-    }
+    if (!keep.has(d.id)) await deleteDoc(d.ref);
   }
 }
 
@@ -253,12 +253,11 @@ async function pushMembers(uid: string, users: User[]): Promise<void> {
 
 async function pushMeals(uid: string, meals: Meal[]): Promise<void> {
   const fs = getFirestoreDb();
-  const st = getStorageBucket();
   let batch = writeBatch(fs);
   let n = 0;
   for (const m of meals) {
-    const stored = await mealToStored(uid, st, m);
-    batch.set(doc(fs, "users", uid, "meals", m.id), cleanForFirestore(stored));
+    const stored = await mealToStored(m);
+    batch.set(doc(fs, "users", uid, "meals", m.id), stored);
     n++;
     if (n >= BATCH) {
       await batch.commit();
@@ -271,12 +270,11 @@ async function pushMeals(uid: string, meals: Meal[]): Promise<void> {
 
 async function pushHealth(uid: string, rows: HealthRecord[]): Promise<void> {
   const fs = getFirestoreDb();
-  const st = getStorageBucket();
   let batch = writeBatch(fs);
   let n = 0;
   for (const h of rows) {
-    const stored = await healthToStored(uid, st, h);
-    batch.set(doc(fs, "users", uid, "health", h.id), cleanForFirestore(stored));
+    const stored = await healthToStored(h);
+    batch.set(doc(fs, "users", uid, "health", h.id), stored);
     n++;
     if (n >= BATCH) {
       await batch.commit();
@@ -299,13 +297,15 @@ async function pushPublicSettings(uid: string, s: AppSettings): Promise<void> {
   await setDoc(doc(fs, "users", uid, "config", "public"), cleanForFirestore(docData));
 }
 
-/** 원격과 로컬을 병합한 뒤 양쪽에 반영합니다. Gemini 키는 클라우드에 올리지 않습니다. */
+/**
+ * 원격과 로컬을 병합한 뒤 양쪽에 반영합니다.
+ * Spark(무료) 플랜: Firebase Storage 없이 Firestore 문서에 압축 JPEG(Base64)만 저장합니다.
+ * Gemini 키는 클라우드에 올리지 않습니다.
+ */
 export async function syncCloudWithLocal(): Promise<void> {
   const auth = getFirebaseAuth();
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Google 로그인이 필요합니다.");
-
-  const st = getStorageBucket();
 
   const remoteMembers = await pullMembers(uid);
   const remoteMeals = await pullMealsStored(uid);
@@ -318,8 +318,8 @@ export async function syncCloudWithLocal(): Promise<void> {
   let localSettings = await getSettings();
 
   const mergedMembers = mergeUsers(localMembers, remoteMembers);
-  const mergedMeals = await mergeMeals(st, localMeals, remoteMeals);
-  const mergedHealth = await mergeHealth(st, localHealth, remoteHealth);
+  const mergedMeals = await mergeMeals(localMeals, remoteMeals);
+  const mergedHealth = await mergeHealth(localHealth, remoteHealth);
 
   if (remotePublic && remotePublic.updatedAt > (localSettings.appSettingsUpdatedAt ?? 0)) {
     localSettings = {

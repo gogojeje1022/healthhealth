@@ -68,6 +68,14 @@ export async function blobToBase64(blob: Blob): Promise<string> {
   return dataUrl.split(",")[1] ?? "";
 }
 
+/** Firestore 동기화 등 — Base64 → Blob */
+export function base64ToBlob(base64: string, mimeType: string): Blob {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
 /** 안전한 object URL 캐시 - 컴포넌트 unmount 시 revoke 필요 */
 const urlCache = new WeakMap<Blob, string>();
 export function blobUrl(blob: Blob | undefined): string | undefined {

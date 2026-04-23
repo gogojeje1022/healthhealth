@@ -164,8 +164,8 @@ export default function SettingsPage() {
           <Cloud size={16} className="text-sky-400" /> 계정 · 클라우드 동기화
         </h2>
         <p className="mb-3 text-xs leading-relaxed text-slate-400">
-          Google로 로그인하면 가족·식단·건강 기록이 Firebase에 저장됩니다. 한 계정으로 여러 기기에서 같은 데이터를
-          맞출 수 있어요.{" "}
+          Google로 로그인하면 가족·식단·건강 기록이 Firestore에 저장됩니다(무료 Spark 플랜·Storage 불필요). 한
+          계정으로 여러 기기에서 맞출 수 있어요. 사진은 문서 크기 한도 안에서 압축해 동기화합니다.{" "}
           <strong className="text-slate-300">Gemini API 키는 기기에만 남고 서버로 올라가지 않습니다.</strong>
         </p>
 

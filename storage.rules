@@ -1,8 +1,9 @@
+// 앱은 Spark(무료)에서 Storage 를 쓰지 않습니다. 사진은 Firestore 문서(Base64)만 사용합니다.
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
