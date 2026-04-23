@@ -56,6 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearSignInError = useCallback(() => setSignInError(null), []);
 
   useEffect(() => {
+    if (user) setSignInBusy(false);
+  }, [user]);
+
+  useEffect(() => {
     if (!firebaseReady) {
       setLoading(false);
       return;
@@ -63,7 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initFirebase();
     const auth = getFirebaseAuth();
     let cancelled = false;
-    let unsub: (() => void) | undefined;
+
+    // 반드시 먼저 구독: 리다이렉트 직후·StrictMode 재마운트에서도 currentUser 이벤트를 놓치지 않음
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (cancelled) return;
+      setUser(u);
+      setLoading(false);
+    });
 
     void (async () => {
       try {
@@ -72,34 +82,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* noop */
       }
       if (cancelled) return;
-
       try {
         const result = await getRedirectResult(auth);
-        if (!cancelled && result?.user) {
+        if (cancelled) return;
+        if (result?.user) {
           setUser(result.user);
+          setLoading(false);
+        } else if (auth.currentUser) {
+          setUser(auth.currentUser);
           setLoading(false);
         }
       } catch (e) {
         console.warn("[auth] getRedirectResult", e);
       }
-      if (cancelled) return;
-
-      const cur = auth.currentUser;
-      if (cur) {
-        setUser(cur);
-        setLoading(false);
-      }
-
-      unsub = onAuthStateChanged(auth, (u) => {
-        if (cancelled) return;
-        setUser(u);
-        setLoading(false);
-      });
     })();
 
     return () => {
       cancelled = true;
-      unsub?.();
+      unsub();
     };
   }, [firebaseReady]);
 
