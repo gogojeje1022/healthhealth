@@ -11,14 +11,32 @@ import {
 import {
   GoogleAuthProvider,
   browserLocalPersistence,
-  getRedirectResult,
   onAuthStateChanged,
   setPersistence,
+  signInWithPopup,
   signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
 import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "../lib/firebaseApp";
+
+function usePopupFirstForGoogle(): boolean {
+  if (typeof window === "undefined") return false;
+  const coarse =
+    window.matchMedia?.("(pointer: fine)").matches ||
+    !window.matchMedia?.("(pointer: coarse)").matches;
+  return coarse;
+}
+
+function shouldFallbackToRedirect(e: unknown): boolean {
+  const code = (e as { code?: string })?.code ?? "";
+  return (
+    code === "auth/popup-blocked" ||
+    code === "auth/popup-closed-by-user" ||
+    code === "auth/cancelled-popup-request" ||
+    code === "auth/operation-not-supported-in-this-environment"
+  );
+}
 
 function formatSignInError(e: unknown): string {
   const o = e as { code?: string; message?: string };
@@ -72,18 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void setPersistence(auth, browserLocalPersistence).catch(() => {
         /* 일부 환경에서 실패해도 기본 영속성으로 진행 */
       });
-      const unsub = onAuthStateChanged(auth, onStoreChange);
-      void (async () => {
-        try {
-          await auth.authStateReady();
-          await getRedirectResult(auth);
-        } catch {
-          /* noop */
-        } finally {
-          onStoreChange();
-        }
-      })();
-      return unsub;
+      return onAuthStateChanged(auth, onStoreChange);
     },
     [firebaseReady],
   );
@@ -125,9 +132,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       provider.addScope("email");
       provider.setCustomParameters({ prompt: "select_account" });
       await new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+      if (usePopupFirstForGoogle()) {
+        try {
+          await signInWithPopup(auth, provider);
+          setSignInBusy(false);
+          window.clearTimeout(resetBusyLater);
+          return;
+        } catch (e) {
+          if (!shouldFallbackToRedirect(e)) throw e;
+        }
+      }
       await signInWithRedirect(auth, provider);
     } catch (e) {
-      console.error("[auth] signInWithRedirect", e);
+      console.error("[auth] Google 로그인", e);
       setSignInError(formatSignInError(e));
       setSignInBusy(false);
       window.clearTimeout(resetBusyLater);
