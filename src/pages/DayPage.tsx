@@ -341,7 +341,7 @@ function AnalysisBlock({
   return (
     <div className="space-y-3 rounded-xl bg-slate-800/40 p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="flex-1 text-sm font-medium leading-relaxed text-slate-100">
+        <p className="min-w-0 flex-1 break-words text-sm font-medium leading-relaxed text-slate-100">
           {meal.menuText}
         </p>
         <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-2 py-1 text-xs font-bold text-amber-300">
@@ -360,7 +360,7 @@ function AnalysisBlock({
         </span>
       </div>
       {meal.aiComment && (
-        <p className="text-xs leading-relaxed text-slate-400">
+        <p className="break-words text-xs leading-relaxed text-slate-400 whitespace-pre-wrap">
           <Sparkles size={11} className="mb-0.5 mr-1 inline text-brand-400" />
           {meal.aiComment}
         </p>

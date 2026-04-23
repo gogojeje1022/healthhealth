@@ -154,9 +154,9 @@ export default function HealthPage() {
 
       <section className="card flex items-center gap-4 p-5">
         <HealthScoreRing score={latest?.healthScore} />
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <p className="text-xs text-slate-400">최근 건강 평가</p>
-          <h2 className="mt-0.5 text-base font-semibold leading-tight text-slate-100">
+          <h2 className="mt-0.5 break-words text-base font-semibold leading-snug text-slate-100">
             {latest?.summary ?? "검진·인바디 사진을 올려 보세요."}
           </h2>
           {latest && (
@@ -254,11 +254,11 @@ function RecordCard({
         ) : (
           <div className="h-14 w-14 shrink-0 rounded-xl bg-slate-800" />
         )}
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <p className="text-xs text-slate-400">
             {HEALTH_TYPE_LABELS[record.type]} · {formatKoDate(record.recordDate)}
           </p>
-          <p className="mt-0.5 truncate text-sm font-medium text-slate-100">
+          <p className="mt-0.5 line-clamp-4 text-sm font-medium leading-snug text-slate-100 break-words">
             {record.summary ?? statusLabel(record)}
           </p>
         </div>
@@ -274,6 +274,12 @@ function RecordCard({
 
       {open && (
         <div className="space-y-3 border-t border-slate-800 p-4">
+          {record.summary && (
+            <p className="text-sm leading-relaxed text-slate-100 break-words whitespace-pre-wrap">
+              {record.summary}
+            </p>
+          )}
+
           {record.analysisStatus === "analyzing" && (
             <div className="flex items-center gap-2 rounded-xl bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
               <Loader2 size={16} className="animate-spin text-brand-400" />
