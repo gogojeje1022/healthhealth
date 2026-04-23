@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Firebase Google 로그인 테스트</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 16px;
+        background: #0f172a;
+        color: #e2e8f0;
+        line-height: 1.5;
+      }
+      button {
+        margin: 4px 8px 4px 0;
+        padding: 8px 14px;
+        cursor: pointer;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: #1e293b;
+        color: #f1f5f9;
+      }
+      button:hover {
+        background: #334155;
+      }
+      #log {
+        margin-top: 16px;
+        white-space: pre-wrap;
+        font-size: 12px;
+        max-height: 65vh;
+        overflow: auto;
+        border: 1px solid #334155;
+        padding: 12px;
+        border-radius: 8px;
+        background: #020617;
+        font-family: ui-monospace, monospace;
+      }
+      .warn {
+        color: #fbbf24;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Firebase Google 로그인 테스트</h1>
+    <p>
+      메인 앱과 <strong>같은 .env</strong>의 <code>VITE_FIREBASE_*</code>를 씁니다. 여기서 되면 Firebase/도메인 설정은 정상이고,
+      메인 앱(React·PWA) 쪽 상태 동기화 이슈일 가능성이 큽니다.
+    </p>
+    <p class="warn">
+      로컬: <code>npm run dev</code> 후 브라우저에서 이 파일 URL로 접속 (base가 <code>/healthhealth/</code>이면
+      <code>/healthhealth/auth-test.html</code>). 배포본도 동일 경로.
+    </p>
+    <div>
+      <button type="button" id="btn-popup">Google 팝업 로그인</button>
+      <button type="button" id="btn-redirect">Google 리다이렉트 로그인</button>
+      <button type="button" id="btn-out">로그아웃</button>
+      <button type="button" id="btn-refresh">currentUser 수동 출력</button>
+    </div>
+    <div id="log"></div>
+    <script type="module" src="/src/auth-test-entry.ts"></script>
+  </body>
+</html>

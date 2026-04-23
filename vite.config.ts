@@ -1,6 +1,10 @@
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 // GitHub Pages 배포용 base 경로 (저장소 이름과 동일하게 설정)
 // 사용자 정의 도메인이나 user.github.io 저장소면 "/"로 변경
@@ -49,5 +53,11 @@ export default defineConfig({
   build: {
     target: "es2020",
     sourcemap: false,
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        authTest: resolve(__dirname, "auth-test.html"),
+      },
+    },
   },
 });
