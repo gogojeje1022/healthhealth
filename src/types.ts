@@ -55,6 +55,8 @@ export interface User {
   /** 목표 체중 kg (선택) */
   targetWeightKg?: number;
   createdAt: number;
+  /** 클라우드 병합용 (없으면 createdAt 으로 간주) */
+  updatedAt?: number;
 }
 
 export interface Meal {
@@ -127,4 +129,8 @@ export interface AppSettings {
   model?: string;
   /** 온보딩 완료 여부 */
   onboarded?: boolean;
+  /** 공개 설정(activeUserId·model·onboarded) 충돌 해결용 타임스탬프 */
+  appSettingsUpdatedAt?: number;
+  /** 마지막 클라우드 동기화 완료 시각 (로컬 전용) */
+  lastCloudSyncAt?: number;
 }

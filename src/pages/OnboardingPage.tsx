@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Plus, Trash2 } from "lucide-react";
 import { db, patchSettings, uid } from "../lib/db";
 import { nextColor } from "../lib/utils";
@@ -45,6 +46,7 @@ export default function OnboardingPage() {
           name: m.name.trim(),
           color: m.color,
           createdAt: now,
+          updatedAt: now,
         })),
       );
       await patchSettings({
@@ -82,6 +84,13 @@ export default function OnboardingPage() {
           가족 2~4명을 등록하고, 매일의 식단을 사진으로 기록하세요.
           <br />
           AI가 메뉴를 분석하고 건강 점수를 알려드려요.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-slate-500">
+          이미 클라우드에 데이터가 있나요?{" "}
+          <Link to="/settings" className="font-medium text-brand-400 underline">
+            설정에서 Google 로그인 후 동기화
+          </Link>
+          로 이 기기로 가져올 수 있어요.
         </p>
       </header>
 

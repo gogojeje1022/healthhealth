@@ -2,21 +2,27 @@ import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   CheckCircle2,
+  Cloud,
   Eye,
   EyeOff,
   KeyRound,
   Loader2,
+  LogIn,
+  LogOut,
   Plus,
   Trash2,
   TriangleAlert,
   Users,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { syncCloudWithLocal } from "../lib/cloudSync";
 import { db, getSettings, patchSettings, uid } from "../lib/db";
 import { pingGemini } from "../lib/ai";
 import { nextColor } from "../lib/utils";
 import type { User } from "../types";
 
 export default function SettingsPage() {
+  const { firebaseReady, user, loading: authLoading, signInWithGoogle, signOutApp } = useAuth();
   const settings = useLiveQuery(() => getSettings(), []);
   const users = useLiveQuery(() => db.users.orderBy("createdAt").toArray(), []);
 
@@ -25,6 +31,12 @@ export default function SettingsPage() {
   const [model, setModel] = useState("gemini-2.5-flash-lite");
   const [show, setShow] = useState(false);
   const [pingState, setPingState] = useState<
+    | { kind: "idle" }
+    | { kind: "busy" }
+    | { kind: "ok" }
+    | { kind: "fail"; msg: string }
+  >({ kind: "idle" });
+  const [syncState, setSyncState] = useState<
     | { kind: "idle" }
     | { kind: "busy" }
     | { kind: "ok" }
@@ -72,11 +84,13 @@ export default function SettingsPage() {
     }
     const name = prompt("새 가족의 이름은?")?.trim();
     if (!name) return;
+    const t = Date.now();
     const u: User = {
       id: uid(),
       name,
       color: nextColor(users.map((x) => x.color)),
-      createdAt: Date.now(),
+      createdAt: t,
+      updatedAt: t,
     };
     await db.users.put(u);
     if (!settings?.activeUserId) await patchSettings({ activeUserId: u.id });
@@ -85,7 +99,7 @@ export default function SettingsPage() {
   async function renameUser(u: User) {
     const name = prompt("새 이름을 입력하세요", u.name)?.trim();
     if (!name) return;
-    await db.users.put({ ...u, name });
+    await db.users.put({ ...u, name, updatedAt: Date.now() });
   }
 
   async function removeUser(u: User) {
@@ -102,7 +116,20 @@ export default function SettingsPage() {
   }
 
   async function changeColor(u: User, color: string) {
-    await db.users.put({ ...u, color });
+    await db.users.put({ ...u, color, updatedAt: Date.now() });
+  }
+
+  async function runCloudSync() {
+    setSyncState({ kind: "busy" });
+    try {
+      await syncCloudWithLocal();
+      setSyncState({ kind: "ok" });
+    } catch (e) {
+      setSyncState({
+        kind: "fail",
+        msg: e instanceof Error ? e.message : "동기화 실패",
+      });
+    }
   }
 
   async function wipeAll() {
@@ -131,6 +158,79 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-400">설정</p>
         <h1 className="text-xl font-bold">앱 설정</h1>
       </header>
+
+      <section className="card p-4">
+        <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
+          <Cloud size={16} className="text-sky-400" /> 계정 · 클라우드 동기화
+        </h2>
+        <p className="mb-3 text-xs leading-relaxed text-slate-400">
+          Google로 로그인하면 가족·식단·건강 기록이 Firebase에 저장됩니다. 한 계정으로 여러 기기에서 같은 데이터를
+          맞출 수 있어요.{" "}
+          <strong className="text-slate-300">Gemini API 키는 기기에만 남고 서버로 올라가지 않습니다.</strong>
+        </p>
+
+        {!firebaseReady && (
+          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+            Firebase가 설정되지 않았습니다. 배포 저장소 Secrets 또는 로컬{" "}
+            <code className="text-amber-100">.env.local</code>에 <code className="text-amber-100">VITE_FIREBASE_*</code>{" "}
+            변수를 넣고 다시 빌드하세요.
+          </p>
+        )}
+
+        {firebaseReady && authLoading && (
+          <p className="flex items-center gap-2 text-xs text-slate-400">
+            <Loader2 size={14} className="animate-spin" /> 로그인 상태 확인 중…
+          </p>
+        )}
+
+        {firebaseReady && !authLoading && !user && (
+          <div className="space-y-2">
+            <button type="button" onClick={() => signInWithGoogle()} className="btn-primary flex w-full items-center justify-center gap-2 py-2.5 text-sm">
+              <LogIn size={16} /> Google로 로그인
+            </button>
+          </div>
+        )}
+
+        {firebaseReady && !authLoading && user && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm">
+              <span className="truncate text-slate-300">{user.email ?? user.displayName ?? "Google 계정"}</span>
+              <button
+                type="button"
+                onClick={() => signOutApp()}
+                className="btn-secondary inline-flex shrink-0 items-center gap-1 py-1.5 pl-2 pr-2.5 text-xs"
+              >
+                <LogOut size={14} /> 로그아웃
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={syncState.kind === "busy"}
+              onClick={runCloudSync}
+              className="btn-secondary flex w-full items-center justify-center gap-2 py-2.5 text-sm"
+            >
+              {syncState.kind === "busy" ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
+              지금 동기화 (병합 후 업로드)
+            </button>
+            {settings?.lastCloudSyncAt != null && (
+              <p className="text-[11px] text-slate-500">
+                마지막 동기화: {new Date(settings.lastCloudSyncAt).toLocaleString("ko-KR")}
+              </p>
+            )}
+            {syncState.kind === "ok" && (
+              <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <CheckCircle2 size={14} /> 동기화했어요.
+              </p>
+            )}
+            {syncState.kind === "fail" && (
+              <p className="flex items-start gap-1.5 text-xs text-rose-400">
+                <TriangleAlert size={14} className="mt-0.5 shrink-0" />
+                <span className="break-all">{syncState.msg}</span>
+              </p>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="card p-4">
         <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
@@ -310,7 +410,7 @@ export default function SettingsPage() {
       </section>
 
       <section className="px-1 pb-4 text-center text-[11px] text-slate-600">
-        헬스헬스 v0.1.0 · 100% 클라이언트 (서버 없음)
+        헬스헬스 v0.1.0 · 로컬 IndexedDB + 선택 시 Firebase 동기화
       </section>
     </div>
   );

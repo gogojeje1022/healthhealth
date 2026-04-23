@@ -41,12 +41,14 @@ export default function App() {
   const { settings, userCount } = gate;
   const needsOnboarding = !settings.onboarded || userCount === 0;
   const isOnboardingRoute = location.pathname.startsWith("/onboarding");
+  const isSettingsRoute = location.pathname.startsWith("/settings");
 
   if (!needsOnboarding && isOnboardingRoute) {
     return <Navigate to="/" replace />;
   }
 
-  if (needsOnboarding && !isOnboardingRoute) {
+  // 클라우드 복원: 온보딩 전에도 설정에서 Google 로그인·동기화 가능
+  if (needsOnboarding && !isOnboardingRoute && !isSettingsRoute) {
     return <Navigate to="/onboarding" replace />;
   }
 

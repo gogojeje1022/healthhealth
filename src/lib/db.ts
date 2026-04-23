@@ -30,7 +30,17 @@ export async function getSettings(): Promise<AppSettings> {
 
 export async function patchSettings(patch: Partial<AppSettings>): Promise<void> {
   const cur = await getSettings();
-  await db.settings.put({ ...cur, ...patch, id: SETTINGS_KEY });
+  const next: AppSettings = { ...cur, ...patch, id: SETTINGS_KEY };
+  if ("appSettingsUpdatedAt" in patch && patch.appSettingsUpdatedAt !== undefined) {
+    next.appSettingsUpdatedAt = patch.appSettingsUpdatedAt;
+  } else if (
+    "activeUserId" in patch ||
+    "model" in patch ||
+    "onboarded" in patch
+  ) {
+    next.appSettingsUpdatedAt = Date.now();
+  }
+  await db.settings.put(next);
 }
 
 export function uid(): string {
