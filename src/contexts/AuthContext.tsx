@@ -5,12 +5,15 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import {
   GoogleAuthProvider,
+  browserLocalPersistence,
   getRedirectResult,
   onAuthStateChanged,
+  setPersistence,
   signInWithRedirect,
   signOut,
   type User,
@@ -32,6 +35,15 @@ function formatSignInError(e: unknown): string {
   return o?.message ? `${code ? `${code}: ` : ""}${o.message}` : String(e);
 }
 
+function readAuthUser(firebaseReady: boolean): User | null {
+  if (!firebaseReady) return null;
+  try {
+    return getFirebaseAuth().currentUser;
+  } catch {
+    return null;
+  }
+}
+
 type AuthState = {
   firebaseReady: boolean;
   user: User | null;
@@ -46,12 +58,53 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const firebaseReady = isFirebaseConfigured();
   const [signInBusy, setSignInBusy] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
+  /** Firebase 미설정이면 true, 설정이면 authStateReady 될 때까지 false → true */
+  const [authReady, setAuthReady] = useState(!firebaseReady);
 
-  const firebaseReady = isFirebaseConfigured();
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      if (!firebaseReady) return () => {};
+      initFirebase();
+      const auth = getFirebaseAuth();
+      void setPersistence(auth, browserLocalPersistence).catch(() => {
+        /* 일부 환경에서 실패해도 기본 영속성으로 진행 */
+      });
+      const unsub = onAuthStateChanged(auth, onStoreChange);
+      void (async () => {
+        try {
+          await auth.authStateReady();
+          await getRedirectResult(auth);
+        } catch {
+          /* noop */
+        } finally {
+          onStoreChange();
+        }
+      })();
+      return unsub;
+    },
+    [firebaseReady],
+  );
+
+  const getSnapshot = useCallback(() => readAuthUser(firebaseReady), [firebaseReady]);
+
+  const user = useSyncExternalStore(subscribe, getSnapshot, () => null);
+
+  useEffect(() => {
+    if (!firebaseReady) {
+      setAuthReady(true);
+      return;
+    }
+    initFirebase();
+    void getFirebaseAuth()
+      .authStateReady()
+      .catch(() => {})
+      .finally(() => setAuthReady(true));
+  }, [firebaseReady]);
+
+  const loading = firebaseReady && !authReady;
 
   const clearSignInError = useCallback(() => setSignInError(null), []);
 
@@ -59,51 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) setSignInBusy(false);
   }, [user]);
 
-  useEffect(() => {
-    if (!firebaseReady) {
-      setLoading(false);
-      return;
-    }
-    initFirebase();
-    const auth = getFirebaseAuth();
-    let cancelled = false;
-
-    // 반드시 먼저 구독: 리다이렉트 직후·StrictMode 재마운트에서도 currentUser 이벤트를 놓치지 않음
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (cancelled) return;
-      setUser(u);
-      setLoading(false);
-    });
-
-    void (async () => {
-      try {
-        await auth.authStateReady();
-      } catch {
-        /* noop */
-      }
-      if (cancelled) return;
-      try {
-        const result = await getRedirectResult(auth);
-        if (cancelled) return;
-        if (result?.user) {
-          setUser(result.user);
-          setLoading(false);
-        } else if (auth.currentUser) {
-          setUser(auth.currentUser);
-          setLoading(false);
-        }
-      } catch (e) {
-        console.warn("[auth] getRedirectResult", e);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [firebaseReady]);
-
-  /** GitHub Pages 등에서는 팝업이 즉시 닫히는 경우가 많아 redirect 사용 */
   const signInWithGoogle = useCallback(async () => {
     setSignInError(null);
     setSignInBusy(true);
@@ -111,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const auth = getFirebaseAuth();
       await auth.authStateReady();
+      void setPersistence(auth, browserLocalPersistence).catch(() => {});
       const provider = new GoogleAuthProvider();
       provider.addScope("profile");
       provider.addScope("email");
