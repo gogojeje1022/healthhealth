@@ -163,17 +163,34 @@ export default function SettingsPage() {
         <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
           <Cloud size={16} className="text-sky-400" /> 계정 · 클라우드 동기화
         </h2>
-        <p className="mb-3 text-xs leading-relaxed text-slate-400">
-          Google로 로그인하면 가족·식단·건강 기록이 Firestore에 저장됩니다(무료 Spark 플랜·Storage 불필요). 한
-          계정으로 여러 기기에서 맞출 수 있어요. 사진은 문서 크기 한도 안에서 압축해 동기화합니다.{" "}
-          <strong className="text-slate-300">Gemini API 키는 기기에만 남고 서버로 올라가지 않습니다.</strong>
-        </p>
 
-        {!firebaseReady && (
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
-            Firebase가 설정되지 않았습니다. 배포 저장소 Secrets 또는 로컬{" "}
-            <code className="text-amber-100">.env.local</code>에 <code className="text-amber-100">VITE_FIREBASE_*</code>{" "}
-            변수를 넣고 다시 빌드하세요.
+        {!firebaseReady ? (
+          <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-xs leading-relaxed text-amber-100/95">
+            <p className="font-medium text-amber-50">Firebase가 이 빌드에 포함되어 있지 않습니다</p>
+            <p>
+              GitHub Pages 등 배포본은 <strong>빌드할 때</strong> 환경 변수가 들어가야 합니다. 로컬{" "}
+              <code className="rounded bg-black/20 px-1">.env.local</code>만으로는 사이트에 반영되지 않아요.
+            </p>
+            <p>
+              저장소{" "}
+              <strong className="text-amber-50">Settings → Secrets and variables → Actions</strong>에 아래 이름으로
+              값을 추가한 뒤, <strong className="text-amber-50">main</strong> 푸시 또는 Actions에서 워크플로를 다시
+              실행하세요.
+            </p>
+            <ul className="list-inside list-disc space-y-0.5 font-mono text-[11px] text-amber-200/90">
+              <li>VITE_FIREBASE_API_KEY</li>
+              <li>VITE_FIREBASE_AUTH_DOMAIN</li>
+              <li>VITE_FIREBASE_PROJECT_ID</li>
+              <li>VITE_FIREBASE_MESSAGING_SENDER_ID</li>
+              <li>VITE_FIREBASE_APP_ID</li>
+              <li className="list-none pl-4 text-amber-200/70">(선택) VITE_FIREBASE_STORAGE_BUCKET</li>
+            </ul>
+          </div>
+        ) : (
+          <p className="mb-3 text-xs leading-relaxed text-slate-400">
+            Google로 로그인하면 가족·식단·건강 기록이 Firestore에 저장됩니다(무료 Spark 플랜·Storage 불필요). 한
+            계정으로 여러 기기에서 맞출 수 있어요. 사진은 문서 크기 한도 안에서 압축해 동기화합니다.{" "}
+            <strong className="text-slate-300">Gemini API 키는 기기에만 남고 서버로 올라가지 않습니다.</strong>
           </p>
         )}
 
