@@ -19,6 +19,7 @@ import {
   type HealthRecordType,
 } from "../types";
 import HealthScoreRing from "../components/HealthScoreRing";
+import HealthPhotoViewport from "../components/HealthPhotoViewport";
 import PhotoUpload from "../components/PhotoUpload";
 import UserSelector from "../components/UserSelector";
 import { blobUrl } from "../lib/image";
@@ -304,19 +305,10 @@ function RecordCard({
       {open && (
         <div className="space-y-3 border-t border-slate-800 p-4">
           {(record.photo ?? record.thumbnail) && (
-            <button
-              type="button"
-              onClick={() => setShowFull(true)}
-              className="block w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60"
-              aria-label="사진 원본 크기로 보기"
-            >
-              <img
-                src={blobUrl(record.photo ?? record.thumbnail)}
-                alt=""
-                decoding="async"
-                className="mx-auto max-h-72 w-full object-contain [image-rendering:high-quality]"
-              />
-            </button>
+            <HealthPhotoViewport
+              src={blobUrl(record.photo ?? record.thumbnail)!}
+              onRequestFullscreen={() => setShowFull(true)}
+            />
           )}
           {record.analysisStatus === "analyzing" && (
             <div className="flex items-center gap-2 rounded-xl bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
