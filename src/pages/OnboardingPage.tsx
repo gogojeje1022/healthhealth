@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Trash2 } from "lucide-react";
 import FirebaseLoginCard from "../components/FirebaseLoginCard";
-import { db, patchSettings, uid } from "../lib/db";
+import { afterUserDataMutation, db, patchSettings, uid } from "../lib/db";
 import { nextColor } from "../lib/utils";
 
 interface DraftUser {
@@ -50,6 +50,7 @@ export default function OnboardingPage() {
           updatedAt: now,
         })),
       );
+      afterUserDataMutation();
       await patchSettings({
         onboarded: true,
         activeUserId: valid[0].id,
@@ -89,7 +90,7 @@ export default function OnboardingPage() {
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
           이미 클라우드에 데이터가 있나요? 아래에서 로그인한 뒤{" "}
           <Link to="/settings" className="font-medium text-brand-400 underline">
-            설정 → 지금 동기화
+            설정 → 동기화
           </Link>
           로 가져올 수 있어요.
         </p>

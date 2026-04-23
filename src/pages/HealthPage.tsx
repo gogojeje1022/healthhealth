@@ -11,7 +11,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { db, getSettings, uid } from "../lib/db";
+import { afterUserDataMutation, db, getSettings, uid } from "../lib/db";
 import { analyzeHealthImage } from "../lib/ai";
 import {
   HEALTH_TYPE_LABELS,
@@ -57,6 +57,7 @@ export default function HealthPage() {
       updatedAt: now,
     };
     await db.health.put(rec);
+    afterUserDataMutation();
     if (settings?.geminiApiKey) {
       runAnalysis(
         id,
@@ -100,6 +101,7 @@ export default function HealthPage() {
         analysisError: undefined,
         updatedAt: Date.now(),
       });
+      afterUserDataMutation();
     } catch (e) {
       const cur = await db.health.get(id);
       if (!cur) return;
@@ -109,6 +111,7 @@ export default function HealthPage() {
         analysisError: e instanceof Error ? e.message : String(e),
         updatedAt: Date.now(),
       });
+      afterUserDataMutation();
     }
   }
 
@@ -120,6 +123,7 @@ export default function HealthPage() {
       analysisError: undefined,
       updatedAt: Date.now(),
     });
+    afterUserDataMutation();
     runAnalysis(
       rec.id,
       rec.photo,
@@ -133,6 +137,7 @@ export default function HealthPage() {
   async function removeRecord(rec: HealthRecord) {
     if (!confirm("이 건강 기록을 삭제할까요?")) return;
     await db.health.delete(rec.id);
+    afterUserDataMutation();
   }
 
   return (

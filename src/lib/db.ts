@@ -28,6 +28,28 @@ export async function getSettings(): Promise<AppSettings> {
   return s ?? { id: SETTINGS_KEY };
 }
 
+function scheduleAutoSyncAfterSettings(patch: Partial<AppSettings>): void {
+  const keys = Object.keys(patch);
+  if (
+    keys.length > 0 &&
+    keys.every((k) => k === "geminiApiKey" || k === "geminiApiKeyBackup")
+  ) {
+    return;
+  }
+  void import("./autoCloudSync").then((m) => {
+    m.ensureAutoCloudSyncListeners();
+    m.requestAutoCloudSync();
+  });
+}
+
+/** 식단·건강·가족 등 로컬 데이터 변경 후 호출 — 로그인 시 클라우드와 자동 맞춤 */
+export function afterUserDataMutation(): void {
+  void import("./autoCloudSync").then((m) => {
+    m.ensureAutoCloudSyncListeners();
+    m.requestAutoCloudSync();
+  });
+}
+
 export async function patchSettings(patch: Partial<AppSettings>): Promise<void> {
   const cur = await getSettings();
   const next: AppSettings = { ...cur, ...patch, id: SETTINGS_KEY };
@@ -41,6 +63,7 @@ export async function patchSettings(patch: Partial<AppSettings>): Promise<void> 
     next.appSettingsUpdatedAt = Date.now();
   }
   await db.settings.put(next);
+  scheduleAutoSyncAfterSettings(patch);
 }
 
 export function uid(): string {

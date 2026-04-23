@@ -12,7 +12,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { db, getSettings, uid } from "../lib/db";
+import { afterUserDataMutation, db, getSettings, uid } from "../lib/db";
 import { analyzeMealImage } from "../lib/ai";
 import {
   MEAL_SLOTS,
@@ -173,6 +173,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName
         analysisError: undefined,
         updatedAt: Date.now(),
       });
+      afterUserDataMutation();
     } catch (e) {
       const cur = await db.meals.get(id);
       if (!cur) return;
@@ -182,6 +183,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName
         analysisError: e instanceof Error ? e.message : String(e),
         updatedAt: Date.now(),
       });
+      afterUserDataMutation();
     }
   }
 
@@ -193,6 +195,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName
       analysisError: undefined,
       updatedAt: Date.now(),
     });
+    afterUserDataMutation();
     runAnalysis(meal.id, meal.photo, apiKey, modelName, apiKeyBackup);
   }
 
@@ -200,11 +203,13 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName
     if (!meal) return;
     if (!confirm("이 기록을 삭제할까요?")) return;
     await db.meals.delete(meal.id);
+    afterUserDataMutation();
   }
 
   async function updateNotes(notes: string) {
     if (!meal) return;
     await db.meals.put({ ...meal, notes, updatedAt: Date.now() });
+    afterUserDataMutation();
   }
 
   return (

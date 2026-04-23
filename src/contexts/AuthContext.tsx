@@ -17,6 +17,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
+import { ensureAutoCloudSyncListeners, requestAutoCloudSync } from "../lib/autoCloudSync";
 import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "../lib/firebaseApp";
 
 function formatSignInError(e: unknown): string {
@@ -75,6 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user) setSignInBusy(false);
   }, [user]);
+
+  useEffect(() => {
+    if (!firebaseReady || !user) return;
+    ensureAutoCloudSyncListeners();
+    requestAutoCloudSync({ immediate: true });
+  }, [firebaseReady, user?.uid]);
 
   useEffect(() => {
     if (!firebaseReady) {

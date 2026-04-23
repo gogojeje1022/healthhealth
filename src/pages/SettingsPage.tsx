@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { formatCloudSyncError, syncCloudWithLocal } from "../lib/cloudSync";
-import { db, getSettings, patchSettings, uid } from "../lib/db";
+import { afterUserDataMutation, db, getSettings, patchSettings, uid } from "../lib/db";
 import { pingGemini } from "../lib/ai";
 import { nextColor } from "../lib/utils";
 import type { User } from "../types";
@@ -52,6 +52,7 @@ export default function SettingsPage() {
     | { kind: "ok" }
     | { kind: "fail"; msg: string }
   >({ kind: "idle" });
+  const [keySavedFlash, setKeySavedFlash] = useState(false);
 
   useEffect(() => {
     if (!firebaseReady) return;
@@ -73,6 +74,8 @@ export default function SettingsPage() {
       model: model.trim() || undefined,
     });
     setPingState({ kind: "idle" });
+    setKeySavedFlash(true);
+    window.setTimeout(() => setKeySavedFlash(false), 2500);
   }
   async function testKey() {
     setPingState({ kind: "busy" });
@@ -109,12 +112,14 @@ export default function SettingsPage() {
     };
     await db.users.put(u);
     if (!settings?.activeUserId) await patchSettings({ activeUserId: u.id });
+    else afterUserDataMutation();
   }
 
   async function renameUser(u: User) {
     const name = prompt("새 이름을 입력하세요", u.name)?.trim();
     if (!name) return;
     await db.users.put({ ...u, name, updatedAt: Date.now() });
+    afterUserDataMutation();
   }
 
   async function removeUser(u: User) {
@@ -128,10 +133,12 @@ export default function SettingsPage() {
       const remain = await db.users.toArray();
       await patchSettings({ activeUserId: remain[0]?.id });
     }
+    afterUserDataMutation();
   }
 
   async function changeColor(u: User, color: string) {
     await db.users.put({ ...u, color, updatedAt: Date.now() });
+    afterUserDataMutation();
   }
 
   async function runCloudSync() {
@@ -240,14 +247,17 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-sm">
               <span className="truncate text-slate-300">{user.email ?? user.displayName ?? "Google 계정"}</span>
-              <button
-                type="button"
-                onClick={() => signOutApp()}
-                className="btn-secondary inline-flex shrink-0 items-center gap-1 py-1.5 pl-2 pr-2.5 text-xs"
-              >
-                <LogOut size={14} /> 로그아웃
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => signOutApp()}
+              className="btn-secondary inline-flex shrink-0 items-center gap-1 py-1.5 pl-2 pr-2.5 text-xs"
+            >
+              <LogOut size={14} /> 로그아웃
+            </button>
+          </div>
+            <p className="text-[11px] text-slate-500">
+              식단·건강·가족 정보를 바꾸면 잠시 뒤 자동으로 맞춥니다. 바로 당겨 오려면 아래를 누르세요.
+            </p>
             <button
               type="button"
               disabled={syncState.kind === "busy"}
@@ -381,11 +391,17 @@ export default function SettingsPage() {
               <span className="break-all">{pingState.msg}</span>
             </p>
           )}
+          {keySavedFlash && (
+            <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+              <CheckCircle2 size={14} /> 저장했어요.
+            </p>
+          )}
         </div>
 
         <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-          🔒 키는 이 기기 IndexedDB에만 저장되며, 외부로 전송되지 않습니다 (Google API
-          호출 시에만 사용).
+          키는 이 브라우저 IndexedDB에 저장됩니다. Firestore 동기화에는 포함되지 않으며, Gemini API 호출에만
+          쓰입니다. 웹앱은 코드·저장소를 보면 키가 노출될 수 있으니, Google Cloud에서 키 제한(HTTP 리퍼러 등)을
+          거는 것을 권장합니다. 별도 비밀번호 암호화는 하지 않습니다.
         </p>
       </section>
 
@@ -455,7 +471,7 @@ export default function SettingsPage() {
       </section>
 
       <section className="px-1 pb-4 text-center text-[11px] text-slate-600">
-        헬스헬스 v0.1.0 · 로컬 IndexedDB + 선택 시 Firebase 동기화
+        헬스헬스 v0.1.0 · 로컬 IndexedDB + 로그인 시 클라우드 자동 동기화
       </section>
     </div>
   );
