@@ -1,5 +1,11 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import {
+  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  type Auth,
+} from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
 let app: FirebaseApp | null = null;
@@ -27,7 +33,17 @@ export function initFirebase(): FirebaseApp | null {
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || undefined,
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
   });
-  auth = getAuth(app);
+  try {
+    auth = initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+    });
+  } catch (e: unknown) {
+    if ((e as { code?: string })?.code === "auth/already-initialized") {
+      auth = getAuth(app);
+    } else {
+      throw e;
+    }
+  }
   firestore = getFirestore(app);
   return app;
 }

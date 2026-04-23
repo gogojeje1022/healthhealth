@@ -36,6 +36,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
         navigateFallback: `${base}index.html`,
+        // Firebase Auth 리다이렉트 복귀 URL(?apiKey=…)은 캐시된 index.html 로만 처리하지 않고 네트워크로 받게 함
+        navigateFallbackDenylist: [/[?&]apiKey=/],
         // 캐시는 자산만, API 호출은 항상 네트워크
         runtimeCaching: [
           {
