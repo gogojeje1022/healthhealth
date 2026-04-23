@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Maximize2, ZoomIn, ZoomOut } from "lucide-react";
+import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 
 const VIEW_H_PX = 260;
 const MIN_ZOOM = 1;
@@ -24,14 +24,13 @@ function clampPan(
 
 type Props = {
   src: string;
-  onRequestFullscreen: () => void;
 };
 
 /**
  * 고정 크기(높이 260px) 뷰포트 안에서만 사진 표시·확대·이동.
  * 첫 표시는 뷰에 맞추되 작은 원본은 1:1에 가깝게(과대 확대 없음).
  */
-export default function HealthPhotoViewport({ src, onRequestFullscreen }: Props) {
+export default function HealthPhotoViewport({ src }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [nw, setNw] = useState(0);
   const [nh, setNh] = useState(0);
@@ -115,6 +114,11 @@ export default function HealthPhotoViewport({ src, onRequestFullscreen }: Props)
     setZoom((z) =>
       Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round((z + delta) * 100) / 100)),
     );
+  };
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -230,16 +234,16 @@ export default function HealthPhotoViewport({ src, onRequestFullscreen }: Props)
         </button>
         <button
           type="button"
-          onClick={onRequestFullscreen}
+          onClick={resetView}
           className="rounded-md p-1.5 text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-          aria-label="전체 화면"
+          aria-label="처음 배율로"
         >
-          <Maximize2 size={16} />
+          <RotateCcw size={16} />
         </button>
       </div>
 
       <p className="pointer-events-none px-2 pb-2 pt-1 text-center text-[10px] leading-tight text-slate-500">
-        휠·버튼으로 확대 · 확대 후 드래그로 이동 · 모바일은 두 손가락
+        휠·버튼 확대 · 드래그 이동 · 모바일 두 손가락 · ↺ 처음 배율
       </p>
     </div>
   );

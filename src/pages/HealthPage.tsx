@@ -239,9 +239,7 @@ function RecordCard({
   canAnalyze: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [showFull, setShowFull] = useState(false);
   const thumbUrl = blobUrl(record.thumbnail || record.photo);
-  const fullUrl = blobUrl(record.photo) ?? blobUrl(record.thumbnail);
 
   return (
     <div className="card overflow-hidden">
@@ -285,30 +283,10 @@ function RecordCard({
         </button>
       </div>
 
-      {showFull && fullUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/88 p-3"
-          onClick={() => setShowFull(false)}
-        >
-          <img
-            src={fullUrl}
-            alt="원본"
-            decoding="async"
-            className="max-h-[min(92vh,100dvh)] w-auto max-w-[min(100%,96vw)] object-contain [image-rendering:high-quality]"
-          />
-          <p className="pointer-events-none absolute bottom-4 left-0 right-0 text-center text-xs text-slate-400">
-            탭하여 닫기
-          </p>
-        </div>
-      )}
-
       {open && (
         <div className="space-y-3 border-t border-slate-800 p-4">
           {(record.photo ?? record.thumbnail) && (
-            <HealthPhotoViewport
-              src={blobUrl(record.photo ?? record.thumbnail)!}
-              onRequestFullscreen={() => setShowFull(true)}
-            />
+            <HealthPhotoViewport src={blobUrl(record.photo ?? record.thumbnail)!} />
           )}
           {record.analysisStatus === "analyzing" && (
             <div className="flex items-center gap-2 rounded-xl bg-slate-800/50 px-3 py-2 text-sm text-slate-300">
