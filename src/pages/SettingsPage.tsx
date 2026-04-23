@@ -22,7 +22,16 @@ import { nextColor } from "../lib/utils";
 import type { User } from "../types";
 
 export default function SettingsPage() {
-  const { firebaseReady, user, loading: authLoading, signInWithGoogle, signOutApp } = useAuth();
+  const {
+    firebaseReady,
+    user,
+    loading: authLoading,
+    signInBusy,
+    signInError,
+    clearSignInError,
+    signInWithGoogle,
+    signOutApp,
+  } = useAuth();
   const settings = useLiveQuery(() => getSettings(), []);
   const users = useLiveQuery(() => db.users.orderBy("createdAt").toArray(), []);
 
@@ -202,14 +211,29 @@ export default function SettingsPage() {
 
         {firebaseReady && !authLoading && !user && (
           <div className="space-y-2">
-            <button type="button" onClick={() => signInWithGoogle()} className="btn-primary flex w-full items-center justify-center gap-2 py-2.5 text-sm">
-              <LogIn size={16} /> Google로 로그인
+            <button
+              type="button"
+              disabled={signInBusy}
+              onClick={() => void signInWithGoogle()}
+              className="btn-primary flex w-full items-center justify-center gap-2 py-2.5 text-sm disabled:opacity-60"
+            >
+              {signInBusy ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
+              {signInBusy ? "Google로 이동 중…" : "Google로 로그인"}
             </button>
+            {signInError && (
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200/95">
+                <p className="whitespace-pre-wrap break-words">{signInError}</p>
+                <button type="button" onClick={clearSignInError} className="mt-2 text-[11px] text-rose-300 underline">
+                  닫기
+                </button>
+              </div>
+            )}
             <p className="text-[11px] leading-relaxed text-slate-500">
-              Google 계정 화면으로 <strong className="text-slate-400">이동(리다이렉트)</strong>합니다. 팝업이 아니라
-              주소가 바뀌는 것이 정상이에요. Firebase 콘솔 → Authentication → 설정 →{" "}
-              <strong className="text-slate-400">승인된 도메인</strong>에{" "}
-              <code className="text-slate-400">github.io</code> 주소(예: 페이지 호스트)가 있어야 합니다.
+              누르면 주소가 <strong className="text-slate-400">accounts.google.com</strong> 등으로 바뀌는 것이 정상이에요.
+              화면이 그대로면 아래 오류 문구를 확인하세요. Firebase 콘솔 → Authentication → 설정 →{" "}
+              <strong className="text-slate-400">승인된 도메인</strong>에 이 사이트 호스트(
+              <code className="text-slate-400">{typeof window !== "undefined" ? window.location.hostname : "…"}</code>
+              )를 넣으세요.
             </p>
           </div>
         )}
