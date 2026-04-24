@@ -264,7 +264,9 @@ function PhotoBlock({
   onReanalyze: () => void;
   canAnalyze: boolean;
 }) {
-  const url = blobUrl(meal.thumbnail || meal.photo);
+  // 인라인 표시는 압축된 원본(meal.photo)을 쓰고, 없을 때만 썸네일로 폴백.
+  // thumbnail(320px, q=0.7) 은 흐리게 보이므로 DayPage 같이 큰 영역엔 부적합.
+  const url = blobUrl(meal.photo || meal.thumbnail);
   const fullUrl = blobUrl(meal.photo);
   const [showFull, setShowFull] = useState(false);
 
@@ -278,6 +280,8 @@ function PhotoBlock({
           <img
             src={url}
             alt="식사 사진"
+            loading="lazy"
+            decoding="async"
             className="aspect-video w-full object-cover"
           />
         )}

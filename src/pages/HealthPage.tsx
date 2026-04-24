@@ -34,7 +34,11 @@ export default function HealthPage() {
     async () =>
       userId
         ? (await db.health.where("userId").equals(userId).toArray()).sort(
-            (a, b) => b.recordDate.localeCompare(a.recordDate),
+            (a, b) => {
+              const d = b.recordDate.localeCompare(a.recordDate);
+              if (d !== 0) return d;
+              return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+            },
           )
         : [],
     [userId],
