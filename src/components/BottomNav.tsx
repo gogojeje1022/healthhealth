@@ -1,10 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, HeartPulse, Settings } from "lucide-react";
+import { Calendar, HeartPulse, Settings, Users } from "lucide-react";
 import { cls } from "../lib/utils";
 
 const items = [
   { to: "/", label: "달력", icon: Calendar },
   { to: "/health", label: "건강", icon: HeartPulse },
+  { to: "/friends", label: "친구", icon: Users },
   { to: "/settings", label: "설정", icon: Settings },
 ];
 
@@ -19,7 +20,11 @@ export default function BottomNav() {
       <ul className="flex items-stretch justify-around">
         {items.map(({ to, label, icon: Icon }) => {
           const active =
-            to === "/" ? pathname === "/" || pathname.startsWith("/day") : pathname === to;
+            to === "/"
+              ? pathname === "/" || pathname.startsWith("/day")
+              : to === "/friends"
+                ? pathname === "/friends" || pathname.startsWith("/friends/")
+                : pathname === to;
           return (
             <li key={to} className="flex-1">
               <Link

@@ -77,7 +77,7 @@ function prunePendingDeletes(
   return next;
 }
 
-async function storedToMeal(s: MealStored): Promise<Meal> {
+export async function storedToMeal(s: MealStored): Promise<Meal> {
   const { photoPath: _p, thumbnailPath: _t, photoBase64, photoMimeType, ...rest } = s;
   const meal: Meal = { ...rest };
   if (photoBase64 && photoMimeType) {
@@ -88,7 +88,7 @@ async function storedToMeal(s: MealStored): Promise<Meal> {
   return meal;
 }
 
-async function storedToHealth(s: HealthStored): Promise<HealthRecord> {
+export async function storedToHealth(s: HealthStored): Promise<HealthRecord> {
   const { photoPath: _p, thumbnailPath: _t, photoBase64, photoMimeType, ...rest } = s;
   const rec: HealthRecord = { ...rest };
   if (photoBase64 && photoMimeType) {

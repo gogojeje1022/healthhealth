@@ -15,17 +15,24 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../lib/db";
 import { cls, dateKey, formatKoMonth } from "../lib/utils";
 
+export interface DayCount {
+  total: number;
+  ratings: number[];
+}
+
 interface Props {
   cursor: Date;
   setCursor: (d: Date) => void;
   selected?: string;
   onPick: (key: string) => void;
   userId?: string;
+  /** 지정 시 로컬 DB 쿼리 대신 이 map 을 사용 (친구 달력처럼 Firestore 에서 가져올 때) */
+  externalCounts?: Map<string, DayCount> | null;
 }
 
 const WEEK_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
-export default function Calendar({ cursor, setCursor, selected, onPick, userId }: Props) {
+export default function Calendar({ cursor, setCursor, selected, onPick, userId, externalCounts }: Props) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(cursor), { weekStartsOn: 0 });
     const end = endOfWeek(endOfMonth(cursor), { weekStartsOn: 0 });
@@ -39,13 +46,14 @@ export default function Calendar({ cursor, setCursor, selected, onPick, userId }
   const startKey = dateKey(days[0]);
   const endKey = dateKey(days[days.length - 1]);
 
-  // 해당 월의 식사 기록 카운트
-  const counts = useLiveQuery(async () => {
+  // 외부 카운트 주입 시엔 Dexie 쿼리 건너뜀(친구 달력)
+  const localCounts = useLiveQuery(async () => {
+    if (externalCounts !== undefined) return null;
     const meals = await db.meals
       .where("date")
       .between(startKey, endKey, true, true)
       .toArray();
-    const map = new Map<string, { total: number; ratings: number[] }>();
+    const map = new Map<string, DayCount>();
     for (const m of meals) {
       if (userId && m.userId !== userId) continue;
       const cur = map.get(m.date) ?? { total: 0, ratings: [] };
@@ -54,7 +62,9 @@ export default function Calendar({ cursor, setCursor, selected, onPick, userId }
       map.set(m.date, cur);
     }
     return map;
-  }, [startKey, endKey, userId]);
+  }, [startKey, endKey, userId, externalCounts !== undefined]);
+
+  const counts = externalCounts !== undefined ? externalCounts : localCounts;
 
   return (
     <div className="card p-3">

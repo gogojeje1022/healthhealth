@@ -7,6 +7,10 @@ import DayPage from "./pages/DayPage";
 import HealthPage from "./pages/HealthPage";
 import SettingsPage from "./pages/SettingsPage";
 import OnboardingPage from "./pages/OnboardingPage";
+import FriendsPage from "./pages/FriendsPage";
+import FriendProfilePage from "./pages/FriendProfilePage";
+import FriendDayPage from "./pages/FriendDayPage";
+import InvitePage from "./pages/InvitePage";
 import BottomNav from "./components/BottomNav";
 
 export default function App() {
@@ -52,13 +56,15 @@ export default function App() {
   const needsOnboarding = !settings.onboarded || userCount === 0;
   const isOnboardingRoute = location.pathname.startsWith("/onboarding");
   const isSettingsRoute = location.pathname.startsWith("/settings");
+  // 친구 초대 링크는 앱을 처음 쓰는 사람이 수신하므로 온보딩 전에도 접근 허용.
+  const isInviteRoute = location.pathname.startsWith("/friends/invite");
 
   if (!needsOnboarding && isOnboardingRoute) {
     return <Navigate to="/" replace />;
   }
 
   // 클라우드 복원: 온보딩 전에도 설정에서 Google 로그인 가능
-  if (needsOnboarding && !isOnboardingRoute && !isSettingsRoute) {
+  if (needsOnboarding && !isOnboardingRoute && !isSettingsRoute && !isInviteRoute) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -77,6 +83,10 @@ export default function App() {
           <Route path="/health" element={<HealthPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/friends/invite/:reqId" element={<InvitePage />} />
+          <Route path="/friends/:uid" element={<FriendProfilePage />} />
+          <Route path="/friends/:uid/day/:date" element={<FriendDayPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

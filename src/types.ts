@@ -144,3 +144,60 @@ export interface AppSettings {
     members?: string[];
   };
 }
+
+/** 친구 공유 기능 — Firestore 전용 타입 (로컬 IndexedDB 에는 저장하지 않음) */
+
+export interface ShareScope {
+  /** 식사·달력 기록 공개 */
+  calendar: boolean;
+  /** 건강 기록 공개 */
+  health: boolean;
+}
+
+/** /publicProfiles/{uid} — 로그인 사용자 전체가 읽을 수 있는 최소한의 공개 정보 */
+export interface PublicProfile {
+  uid: string;
+  /** 소문자 정규화된 이메일 */
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  updatedAt: number;
+}
+
+export type FriendRequestStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled";
+
+/** /friendRequests/{id} */
+export interface FriendRequest {
+  id: string;
+  fromUid: string;
+  fromEmail: string;
+  fromName: string;
+  fromPhotoURL?: string;
+  /** 소문자 정규화 */
+  toEmail: string;
+  /** 수락 전까지 비어 있을 수 있음 */
+  toUid?: string;
+  /** 신청자가 공개할 범위 */
+  scopeFromRequester: ShareScope;
+  status: FriendRequestStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** /friendships/{`${min}_${max}`} */
+export interface Friendship {
+  id: string;
+  /** 정렬된 두 UID */
+  users: [string, string];
+  /** 각 사용자(uid)가 상대에게 공개하는 범위 */
+  shares: Record<string, ShareScope>;
+  emails: Record<string, string>;
+  names: Record<string, string>;
+  photos?: Record<string, string>;
+  createdAt: number;
+  updatedAt: number;
+}

@@ -21,6 +21,7 @@ import {
 import { ensureAutoCloudSyncListeners, requestAutoCloudSync } from "../lib/autoCloudSync";
 import { clearLocalProfileDataPreservingDevicePreferences, getSettings } from "../lib/db";
 import { getFirebaseAuth, initFirebase, isFirebaseConfigured } from "../lib/firebaseApp";
+import { upsertMyPublicProfile } from "../lib/friends";
 
 /** 로그인했던 흔적은 있는데 Firebase 세션이 없을 때(쿠키만 삭제 등) 로컬 DB 정리용 */
 const LAST_FB_UID_KEY = "healthhealth_last_fb_uid";
@@ -87,6 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!firebaseReady || !user) return;
     ensureAutoCloudSyncListeners();
     requestAutoCloudSync({ immediate: true });
+    // 친구 기능: 본인 공개 프로필을 Firestore 에 upsert — 실패는 로그만 남기고 앱 플로우는 계속
+    void upsertMyPublicProfile(user).catch((e) => {
+      console.warn("[auth] publicProfile upsert 실패", e);
+    });
   }, [firebaseReady, user?.uid]);
 
   useEffect(() => {

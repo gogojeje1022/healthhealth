@@ -1,17 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-  Star,
-  StickyNote,
-  Trash2,
-  TriangleAlert,
-} from "lucide-react";
+import { ArrowLeft, StickyNote, Trash2 } from "lucide-react";
 import { afterUserDataMutation, db, getSettings, registerCloudDelete, uid } from "../lib/db";
 import { analyzeMealImage } from "../lib/ai";
 import {
@@ -22,9 +12,9 @@ import {
   type MealSlot,
 } from "../types";
 import PhotoUpload from "../components/PhotoUpload";
+import { MealPhotoBlock } from "../components/MealCard";
 import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
-import { blobUrl } from "../lib/image";
-import { cls, formatKoDate } from "../lib/utils";
+import { formatKoDate } from "../lib/utils";
 
 export default function DayPage() {
   const { date = "" } = useParams();
@@ -228,7 +218,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName
 
       <div className="space-y-3 p-4">
         {meal?.photo ? (
-          <PhotoBlock meal={meal} onReanalyze={reAnalyze} canAnalyze={!!apiKey} />
+          <MealPhotoBlock meal={meal} onReanalyze={reAnalyze} canAnalyze={!!apiKey} />
         ) : (
           <PhotoUpload
             label="사진 찍어 기록하기"
@@ -252,172 +242,6 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup, modelName
         )}
       </div>
     </section>
-  );
-}
-
-function PhotoBlock({
-  meal,
-  onReanalyze,
-  canAnalyze,
-}: {
-  meal: Meal;
-  onReanalyze: () => void;
-  canAnalyze: boolean;
-}) {
-  // 인라인 표시는 압축된 원본(meal.photo)을 쓰고, 없을 때만 썸네일로 폴백.
-  // thumbnail(320px, q=0.7) 은 흐리게 보이므로 DayPage 같이 큰 영역엔 부적합.
-  const url = blobUrl(meal.photo || meal.thumbnail);
-  const fullUrl = blobUrl(meal.photo);
-  const [showFull, setShowFull] = useState(false);
-
-  return (
-    <div className="space-y-3">
-      <button
-        onClick={() => setShowFull(true)}
-        className="block w-full overflow-hidden rounded-xl border border-slate-800"
-      >
-        {url && (
-          <img
-            src={url}
-            alt="식사 사진"
-            loading="lazy"
-            decoding="async"
-            className="aspect-video w-full object-cover"
-          />
-        )}
-      </button>
-
-      {showFull && fullUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/88 p-3"
-          onClick={() => setShowFull(false)}
-        >
-          <img
-            src={fullUrl}
-            alt="원본"
-            className="max-h-[92vh] max-w-full object-contain"
-          />
-          <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-slate-400">탭하여 닫기</p>
-        </div>
-      )}
-
-      <AnalysisBlock meal={meal} onReanalyze={onReanalyze} canAnalyze={canAnalyze} />
-    </div>
-  );
-}
-
-function AnalysisBlock({
-  meal,
-  onReanalyze,
-  canAnalyze,
-}: {
-  meal: Meal;
-  onReanalyze: () => void;
-  canAnalyze: boolean;
-}) {
-  if (meal.analysisStatus === "analyzing") {
-    return (
-      <div className="flex items-center gap-2 rounded-xl bg-slate-800/50 px-3 py-2.5 text-sm text-slate-300">
-        <Loader2 size={16} className="animate-spin text-brand-400" />
-        AI가 식단을 분석하고 있어요…
-      </div>
-    );
-  }
-  if (meal.analysisStatus === "error") {
-    return (
-      <div className="space-y-2 rounded-xl border border-rose-500/30 bg-rose-500/5 px-3 py-2.5">
-        <div className="flex items-start gap-2 text-sm text-rose-300">
-          <TriangleAlert size={16} className="mt-0.5 shrink-0" />
-          <span className="break-all">{meal.analysisError ?? "분석 실패"}</span>
-        </div>
-        {canAnalyze && (
-          <button onClick={onReanalyze} className="btn-secondary w-full py-2 text-sm">
-            <RefreshCw size={14} /> 다시 시도
-          </button>
-        )}
-      </div>
-    );
-  }
-  if (meal.analysisStatus === "skipped" || !meal.menuText) {
-    return canAnalyze ? (
-      <button onClick={onReanalyze} className="btn-secondary w-full py-2 text-sm">
-        <Sparkles size={14} /> AI 분석 시작
-      </button>
-    ) : (
-      <p className="text-xs text-slate-500">설정에서 키를 저장해 두면 여기서도 분석이 돼요.</p>
-    );
-  }
-
-  return (
-    <div className="space-y-3 rounded-xl bg-slate-800/40 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 flex-1 break-words text-sm font-medium leading-relaxed text-slate-100">
-          {meal.menuText}
-        </p>
-        <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-500/15 px-2 py-1 text-xs font-bold text-amber-300">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Star
-              key={i}
-              size={12}
-              className={cls(
-                i <= (meal.rating ?? 0)
-                  ? "fill-amber-300 text-amber-300"
-                  : "text-amber-300/30",
-              )}
-            />
-          ))}
-          <span className="ml-0.5">{meal.rating}</span>
-        </span>
-      </div>
-      {meal.aiComment && (
-        <p className="break-words text-xs leading-relaxed text-slate-400 whitespace-pre-wrap">
-          <Sparkles size={11} className="mb-0.5 mr-1 inline text-brand-400" />
-          {meal.aiComment}
-        </p>
-      )}
-      {meal.nutrition && (
-        <div className="flex flex-wrap gap-1.5">
-          {meal.nutrition.calories !== undefined && (
-            <span className="chip bg-slate-700/60 text-slate-200">
-              🔥 {meal.nutrition.calories}kcal
-            </span>
-          )}
-          {meal.nutrition.protein !== undefined && (
-            <span className="chip bg-slate-700/60 text-slate-200">
-              💪 단백질 {meal.nutrition.protein}g
-            </span>
-          )}
-          {meal.nutrition.carbs !== undefined && (
-            <span className="chip bg-slate-700/60 text-slate-200">
-              🌾 탄수 {meal.nutrition.carbs}g
-            </span>
-          )}
-          {meal.nutrition.fat !== undefined && (
-            <span className="chip bg-slate-700/60 text-slate-200">
-              🥑 지방 {meal.nutrition.fat}g
-            </span>
-          )}
-          {meal.nutrition.healthTags?.map((t) => (
-            <span key={t} className="chip bg-brand-500/15 text-brand-300">
-              #{t}
-            </span>
-          ))}
-        </div>
-      )}
-      {canAnalyze && (
-        <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500">
-          <span className="inline-flex items-center gap-1">
-            <CheckCircle2 size={11} /> AI 분석 완료
-          </span>
-          <button
-            onClick={onReanalyze}
-            className="inline-flex items-center gap-1 hover:text-slate-300"
-          >
-            <RefreshCw size={11} /> 다시 분석
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 

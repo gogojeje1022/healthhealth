@@ -1,9 +1,74 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 한 사용자(UID) 하위 데이터만 본인이 읽기/쓰기
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function myEmail() { return request.auth.token.email; }
+
+    function friendshipId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function friendshipData(owner) {
+      return get(/databases/$(database)/documents/friendships/$(friendshipId(me(), owner))).data;
+    }
+
+    function isFriendWithScope(owner, scope) {
+      let f = friendshipData(owner);
+      return f != null
+        && (me() in f.users) && (owner in f.users)
+        && f.shares[owner][scope] == true;
+    }
+
+    // 본인 UID 하위 — 소유자 본인은 전부, 친구는 해당 범위(meals/health)만 read
+    match /users/{userId}/meals/{docId} {
+      allow read:  if signedIn() && (me() == userId || isFriendWithScope(userId, 'calendar'));
+      allow write: if signedIn() && me() == userId;
+    }
+    match /users/{userId}/health/{docId} {
+      allow read:  if signedIn() && (me() == userId || isFriendWithScope(userId, 'health'));
+      allow write: if signedIn() && me() == userId;
+    }
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if signedIn() && me() == userId;
+    }
+
+    // 공개 프로필 — 본인만 쓰기, 로그인 사용자 모두 읽기
+    match /publicProfiles/{uid} {
+      allow read:  if signedIn();
+      allow write: if signedIn() && me() == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email == myEmail();
+    }
+
+    // 친구 신청 — 보낸 사람은 항상, 받은 사람은 자기 이메일 일치하는 것만
+    match /friendRequests/{reqId} {
+      allow read: if signedIn()
+        && (resource.data.fromUid == me() || resource.data.toEmail == myEmail());
+      allow create: if signedIn()
+        && request.resource.data.fromUid == me()
+        && request.resource.data.fromEmail == myEmail()
+        && request.resource.data.status == 'pending';
+      allow update: if signedIn()
+        && (resource.data.fromUid == me() || resource.data.toEmail == myEmail())
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.toEmail == resource.data.toEmail;
+      allow delete: if signedIn()
+        && (resource.data.fromUid == me() || resource.data.toEmail == myEmail());
+    }
+
+    // 친구 관계 — 당사자만 읽고 쓰며, users 배열 및 상대 share 는 불변
+    match /friendships/{fid} {
+      allow read:   if signedIn() && me() in resource.data.users;
+      allow create: if signedIn()
+        && me() in request.resource.data.users
+        && request.resource.data.users.size() == 2
+        && fid == friendshipId(request.resource.data.users[0], request.resource.data.users[1]);
+      allow update: if signedIn()
+        && me() in resource.data.users
+        && request.resource.data.users == resource.data.users;
+      allow delete: if signedIn() && me() in resource.data.users;
     }
   }
 }
