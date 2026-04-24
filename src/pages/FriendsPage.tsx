@@ -40,17 +40,42 @@ export default function FriendsPage() {
   const [friendships, setFriendships] = useState<Friendship[] | null>(null);
   const [incoming, setIncoming] = useState<FriendRequest[] | null>(null);
   const [outgoing, setOutgoing] = useState<FriendRequest[] | null>(null);
+  const [errF, setErrF] = useState<string | null>(null);
+  const [errI, setErrI] = useState<string | null>(null);
+  const [errO, setErrO] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
       setFriendships(null);
       setIncoming(null);
       setOutgoing(null);
+      setErrF(null);
+      setErrI(null);
+      setErrO(null);
       return;
     }
-    const unsubF = subscribeFriendships(setFriendships);
-    const unsubI = subscribeIncomingRequests(setIncoming);
-    const unsubO = subscribeOutgoingRequests(setOutgoing);
+    const toMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+    const unsubF = subscribeFriendships(
+      (rows) => {
+        setErrF(null);
+        setFriendships(rows);
+      },
+      (e) => setErrF(toMsg(e)),
+    );
+    const unsubI = subscribeIncomingRequests(
+      (rows) => {
+        setErrI(null);
+        setIncoming(rows);
+      },
+      (e) => setErrI(toMsg(e)),
+    );
+    const unsubO = subscribeOutgoingRequests(
+      (rows) => {
+        setErrO(null);
+        setOutgoing(rows);
+      },
+      (e) => setErrO(toMsg(e)),
+    );
     return () => {
       unsubF();
       unsubI();
@@ -98,13 +123,13 @@ export default function FriendsPage() {
       </div>
 
       {tab === "friends" && (
-        <FriendsTab friendships={friendships} myUid={user.uid} />
+        <FriendsTab friendships={friendships} myUid={user.uid} error={errF} />
       )}
       {tab === "incoming" && (
-        <IncomingTab requests={incoming} />
+        <IncomingTab requests={incoming} error={errI} />
       )}
       {tab === "outgoing" && (
-        <OutgoingTab requests={outgoing} />
+        <OutgoingTab requests={outgoing} error={errO} />
       )}
     </div>
   );
@@ -152,15 +177,18 @@ function TabButton({
 function FriendsTab({
   friendships,
   myUid,
+  error,
 }: {
   friendships: Friendship[] | null;
   myUid: string;
+  error?: string | null;
 }) {
   return (
     <>
       <SendRequestCard />
       <section className="space-y-3">
-        {friendships === null && (
+        {error && <ErrorBanner message={error} />}
+        {!error && friendships === null && (
           <p className="card p-4 text-center text-xs text-slate-500">불러오는 중…</p>
         )}
         {friendships?.length === 0 && (
@@ -173,6 +201,19 @@ function FriendsTab({
         ))}
       </section>
     </>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="card border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">
+      <p className="font-semibold">Firestore 에서 데이터를 읽지 못했어요.</p>
+      <p className="mt-1 break-all text-[11px] text-rose-200/80">{message}</p>
+      <p className="mt-2 text-[11px] text-rose-200/70">
+        규칙이 배포되지 않았거나 복합 인덱스가 필요할 수 있어요. 브라우저 콘솔(F12)에서
+        상세 오류를 확인해 주세요.
+      </p>
+    </div>
   );
 }
 
@@ -483,10 +524,17 @@ function Avatar({ name, photoURL }: { name: string; photoURL?: string }) {
 
 // ---- 받은 신청 탭 --------------------------------------------------------
 
-function IncomingTab({ requests }: { requests: FriendRequest[] | null }) {
+function IncomingTab({
+  requests,
+  error,
+}: {
+  requests: FriendRequest[] | null;
+  error?: string | null;
+}) {
   return (
     <section className="space-y-3">
-      {requests === null && (
+      {error && <ErrorBanner message={error} />}
+      {!error && requests === null && (
         <p className="card p-4 text-center text-xs text-slate-500">불러오는 중…</p>
       )}
       {requests?.length === 0 && (
@@ -585,10 +633,17 @@ function IncomingCard({ req }: { req: FriendRequest }) {
 
 // ---- 보낸 신청 탭 --------------------------------------------------------
 
-function OutgoingTab({ requests }: { requests: FriendRequest[] | null }) {
+function OutgoingTab({
+  requests,
+  error,
+}: {
+  requests: FriendRequest[] | null;
+  error?: string | null;
+}) {
   return (
     <section className="space-y-3">
-      {requests === null && (
+      {error && <ErrorBanner message={error} />}
+      {!error && requests === null && (
         <p className="card p-4 text-center text-xs text-slate-500">불러오는 중…</p>
       )}
       {requests?.length === 0 && (

@@ -5,7 +5,6 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
-  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -196,10 +195,15 @@ export async function acceptRequest(
 }
 
 // ---- 실시간 구독 ---------------------------------------------------------
+// 주의: Firestore 는 서로 다른 필드의 equality 여러 개를 한 쿼리에 섞거나,
+// array-contains + orderBy 를 같이 쓰면 복합 인덱스를 요구한다.
+// 인덱스 생성을 강제하지 않기 위해 where 는 하나만 쓰고 정렬·필터는 클라이언트에서 처리.
 
 function subscribeRequests(
   cons: QueryConstraint[],
+  filter: (r: FriendRequest) => boolean,
   cb: (rows: FriendRequest[]) => void,
+  onErr?: (e: unknown) => void,
 ): Unsubscribe {
   const fs = getFirestoreDb();
   const q = query(collection(fs, "friendRequests"), ...cons);
@@ -208,54 +212,66 @@ function subscribeRequests(
     (snap) => {
       const rows = snap.docs
         .map((d) => ({ ...(d.data() as FriendRequest), id: d.id }))
+        .filter(filter)
         .sort((a, b) => b.createdAt - a.createdAt);
       cb(rows);
     },
     (err) => {
       console.error("[friends] requests subscribe", err);
+      onErr?.(err);
     },
   );
 }
 
 export function subscribeIncomingRequests(
   cb: (rows: FriendRequest[]) => void,
+  onErr?: (e: unknown) => void,
 ): Unsubscribe {
   const u = requireUser();
   const email = requireEmail(u);
   return subscribeRequests(
-    [where("toEmail", "==", email), where("status", "==", "pending")],
+    [where("toEmail", "==", email)],
+    (r) => r.status === "pending",
     cb,
+    onErr,
   );
 }
 
 export function subscribeOutgoingRequests(
   cb: (rows: FriendRequest[]) => void,
+  onErr?: (e: unknown) => void,
 ): Unsubscribe {
   const u = requireUser();
   return subscribeRequests(
-    [where("fromUid", "==", u.uid), where("status", "==", "pending")],
+    [where("fromUid", "==", u.uid)],
+    (r) => r.status === "pending",
     cb,
+    onErr,
   );
 }
 
 export function subscribeFriendships(
   cb: (rows: Friendship[]) => void,
+  onErr?: (e: unknown) => void,
 ): Unsubscribe {
   const u = requireUser();
   const fs = getFirestoreDb();
+  // array-contains + orderBy 조합은 복합 인덱스 필요 → orderBy 제거, 클라이언트 정렬
   const q = query(
     collection(fs, "friendships"),
     where("users", "array-contains", u.uid),
-    orderBy("updatedAt", "desc"),
   );
   return onSnapshot(
     q,
     (snap) => {
-      const rows = snap.docs.map((d) => d.data() as Friendship);
+      const rows = snap.docs
+        .map((d) => d.data() as Friendship)
+        .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
       cb(rows);
     },
     (err) => {
       console.error("[friends] friendships subscribe", err);
+      onErr?.(err);
     },
   );
 }
