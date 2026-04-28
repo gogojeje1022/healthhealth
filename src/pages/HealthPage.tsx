@@ -59,7 +59,6 @@ export default function HealthPage() {
         photo,
         pickedType,
         settings.geminiApiKey,
-        settings.model,
         settings.geminiApiKeyBackup,
       );
     }
@@ -70,7 +69,6 @@ export default function HealthPage() {
     photo: Blob,
     type: HealthRecordType,
     key: string,
-    model?: string,
     backupKey?: string,
   ) {
     try {
@@ -78,7 +76,7 @@ export default function HealthPage() {
         key,
         photo,
         HEALTH_TYPE_LABELS[type],
-        model,
+        undefined,
         backupKey,
       );
       const cur = await db.health.get(id);
@@ -124,7 +122,6 @@ export default function HealthPage() {
       rec.photo,
       rec.type,
       settings.geminiApiKey,
-      settings.model,
       settings.geminiApiKeyBackup,
     );
   }

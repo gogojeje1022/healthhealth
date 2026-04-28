@@ -46,7 +46,6 @@ export default function SettingsPage() {
 
   const [apiKey, setApiKey] = useState("");
   const [apiKeyBackup, setApiKeyBackup] = useState("");
-  const [model, setModel] = useState("gemini-2.5-flash-lite");
   const [show, setShow] = useState(false);
   const [pingState, setPingState] = useState<
     | { kind: "idle" }
@@ -66,14 +65,12 @@ export default function SettingsPage() {
     if (settings?.geminiApiKeyBackup !== undefined) {
       setApiKeyBackup(settings.geminiApiKeyBackup ?? "");
     }
-    if (settings?.model) setModel(settings.model);
-  }, [settings?.geminiApiKey, settings?.geminiApiKeyBackup, settings?.model]);
+  }, [settings?.geminiApiKey, settings?.geminiApiKeyBackup]);
 
   async function saveKey() {
     await patchSettings({
       geminiApiKey: apiKey.trim() || undefined,
       geminiApiKeyBackup: apiKeyBackup.trim() || undefined,
-      model: model.trim() || undefined,
     });
     setPingState({ kind: "idle" });
     setKeySavedFlash(true);
@@ -84,7 +81,7 @@ export default function SettingsPage() {
     try {
       await pingGemini(
         apiKey.trim(),
-        model.trim() || undefined,
+        undefined,
         apiKeyBackup.trim() || undefined,
       );
       setPingState({ kind: "ok" });
@@ -193,7 +190,7 @@ export default function SettingsPage() {
 
       <section className="card p-4">
         <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
-          <KeyRound size={16} className="text-brand-400" /> Gemini API 키
+          <KeyRound size={16} className="text-brand-400" /> Google Gemini 키
         </h2>
         <p className="mb-3 text-xs text-slate-400">
           <a
@@ -204,7 +201,7 @@ export default function SettingsPage() {
           >
             AI Studio
           </a>
-          에서 발급 · 로그인한 Google 계정에 맞춰 동기화됩니다.
+          에서 발급 · 로그인한 Google 계정에 맞춰 동기화됩니다. 모델은 자동으로 최적의 Gemini 모델을 사용해요.
         </p>
 
         <div className="space-y-2">
@@ -241,21 +238,6 @@ export default function SettingsPage() {
               autoComplete="off"
               spellCheck={false}
             />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">모델</label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="input"
-            >
-              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (기본)</option>
-              <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite</option>
-              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-              <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-              <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-            </select>
           </div>
 
           <div className="flex gap-2">
