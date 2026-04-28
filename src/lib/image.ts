@@ -7,6 +7,8 @@ export interface CompressOptions {
   maxDimension?: number;
   quality?: number;
   mimeType?: "image/jpeg" | "image/webp";
+  /** true 면 짧은 쪽 기준 가운데 정사각형으로 잘라낸 뒤 압축. (식사 사진용) */
+  square?: boolean;
 }
 
 async function loadImage(blob: Blob): Promise<HTMLImageElement> {
@@ -27,19 +29,34 @@ export async function compressImage(
   file: Blob,
   opts: CompressOptions = {},
 ): Promise<Blob> {
-  const { maxDimension = 1280, quality = 0.85, mimeType = "image/jpeg" } = opts;
+  const {
+    maxDimension = 1280,
+    quality = 0.85,
+    mimeType = "image/jpeg",
+    square = false,
+  } = opts;
   const img = await loadImage(file);
 
-  const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
-  const w = Math.round(img.width * scale);
-  const h = Math.round(img.height * scale);
-
   const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) return file;
-  ctx.drawImage(img, 0, 0, w, h);
+
+  if (square) {
+    const side = Math.min(img.width, img.height);
+    const sx = Math.round((img.width - side) / 2);
+    const sy = Math.round((img.height - side) / 2);
+    const target = Math.min(maxDimension, side);
+    canvas.width = target;
+    canvas.height = target;
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, target, target);
+  } else {
+    const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(img, 0, 0, w, h);
+  }
 
   return await new Promise<Blob>((resolve) => {
     canvas.toBlob(

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Camera, ImagePlus, Loader2 } from "lucide-react";
-import { compressImage, makeThumbnail, type CompressOptions } from "../lib/image";
+import { compressImage, type CompressOptions } from "../lib/image";
 import { cls } from "../lib/utils";
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
   disabled?: boolean;
   /** 기본값보다 크게/선명하게 (건강검진·인바디 등 문서 사진용) */
   compressOptions?: CompressOptions;
+  /** 인스타그램처럼 정사각형(가운데 크롭)으로 저장 — 식사 사진에 사용 */
+  square?: boolean;
 }
 
 export default function PhotoUpload({
@@ -24,6 +26,7 @@ export default function PhotoUpload({
   variant = "primary",
   disabled,
   compressOptions,
+  square = false,
 }: Props) {
   const camRef = useRef<HTMLInputElement>(null);
   const galRef = useRef<HTMLInputElement>(null);
@@ -36,9 +39,14 @@ export default function PhotoUpload({
       const compressed = await compressImage(file, {
         maxDimension: 1280,
         quality: 0.85,
+        square,
         ...compressOptions,
       });
-      const thumb = await makeThumbnail(compressed);
+      const thumb = await compressImage(compressed, {
+        maxDimension: 320,
+        quality: 0.7,
+        square,
+      });
       await onPicked(compressed, thumb);
     } catch (e) {
       console.error(e);

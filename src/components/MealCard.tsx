@@ -1,11 +1,9 @@
-import { useState } from "react";
 import {
   CheckCircle2,
   Loader2,
   RefreshCw,
   Sparkles,
   Star,
-  StickyNote,
   TriangleAlert,
 } from "lucide-react";
 import type { Meal } from "../types";
@@ -19,40 +17,23 @@ interface PhotoBlockProps {
   onReanalyze?: () => void;
 }
 
-/** 식사 사진 + 분석 결과 블록. readOnly 일 때 재분석·편집 버튼을 숨깁니다. */
+/** 식사 사진 + 분석 결과 블록. 사진은 인스타그램처럼 정사각형으로 표시합니다. */
 export function MealPhotoBlock({ meal, readOnly = false, canAnalyze = false, onReanalyze }: PhotoBlockProps) {
   const url = blobUrl(meal.photo || meal.thumbnail);
-  const fullUrl = blobUrl(meal.photo);
-  const [showFull, setShowFull] = useState(false);
 
   return (
     <div className="space-y-3">
-      <button
-        onClick={() => setShowFull(true)}
-        className="block w-full overflow-hidden rounded-xl border border-slate-800"
-      >
+      <div className="block w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
         {url && (
           <img
             src={url}
             alt="식사 사진"
             loading="lazy"
             decoding="async"
-            className="aspect-video w-full object-cover"
+            className="aspect-square w-full object-cover"
           />
         )}
-      </button>
-
-      {showFull && fullUrl && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/88 p-3"
-          onClick={() => setShowFull(false)}
-        >
-          <img src={fullUrl} alt="원본" className="max-h-[92vh] max-w-full object-contain" />
-          <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-slate-400">
-            탭하여 닫기
-          </p>
-        </div>
-      )}
+      </div>
 
       <MealAnalysisBlock
         meal={meal}
@@ -181,13 +162,3 @@ export function MealAnalysisBlock({ meal, readOnly = false, canAnalyze = false, 
   );
 }
 
-/** 친구 프로필처럼 읽기 전용으로 노트를 보여주는 컴포넌트. */
-export function MealNoteReadOnly({ value }: { value?: string }) {
-  if (!value) return null;
-  return (
-    <div className="flex items-start gap-2 rounded-xl border border-dashed border-slate-800 px-3 py-2 text-xs text-slate-400">
-      <StickyNote size={14} className="mt-0.5 shrink-0" />
-      <span className="flex-1 break-words whitespace-pre-wrap">{value}</span>
-    </div>
-  );
-}

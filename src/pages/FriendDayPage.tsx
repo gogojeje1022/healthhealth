@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, StickyNote } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { MealAnalysisBlock, MealPhotoBlock } from "../components/MealCard";
 import {
@@ -163,12 +163,6 @@ function SlotSection({ slot, meal }: { slot: MealSlot; meal?: Meal }) {
           <MealAnalysisBlock meal={meal} readOnly />
         ) : (
           <p className="text-xs text-slate-500">기록 없음</p>
-        )}
-        {meal?.notes && (
-          <div className="flex items-start gap-2 rounded-xl border border-dashed border-slate-800 px-3 py-2 text-xs text-slate-400">
-            <StickyNote size={14} className="mt-0.5 shrink-0" />
-            <span className="flex-1 break-words whitespace-pre-wrap">{meal.notes}</span>
-          </div>
         )}
       </div>
     </section>

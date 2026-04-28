@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft, StickyNote, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { afterUserDataMutation, db, getSettings, registerCloudDelete, uid } from "../lib/db";
 import { analyzeMealImage } from "../lib/ai";
 import {
@@ -186,12 +186,6 @@ function SlotSection({ slot, date, userId, meal, apiKey }: SlotProps) {
     await registerCloudDelete("meals", meal.id);
   }
 
-  async function updateNotes(notes: string) {
-    if (!meal) return;
-    await db.meals.put({ ...meal, notes, updatedAt: Date.now() });
-    afterUserDataMutation();
-  }
-
   return (
     <section ref={sectionRef} id={slot} className="card overflow-hidden">
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
@@ -217,6 +211,7 @@ function SlotSection({ slot, date, userId, meal, apiKey }: SlotProps) {
           <PhotoUpload
             label="사진 찍어 기록하기"
             onPicked={createOrUpdateMealWithPhoto}
+            square
           />
         )}
 
@@ -225,76 +220,10 @@ function SlotSection({ slot, date, userId, meal, apiKey }: SlotProps) {
             label="다시 찍기"
             onPicked={createOrUpdateMealWithPhoto}
             variant="ghost"
-          />
-        )}
-
-        {meal && (
-          <NoteInput
-            value={meal.notes ?? ""}
-            onSave={updateNotes}
+            square
           />
         )}
       </div>
     </section>
-  );
-}
-
-function NoteInput({
-  value,
-  onSave,
-}: {
-  value: string;
-  onSave: (v: string) => void;
-}) {
-  const [v, setV] = useState(value);
-  const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    setV(value);
-  }, [value]);
-
-  if (!editing) {
-    return (
-      <button
-        onClick={() => setEditing(true)}
-        className="flex w-full items-start gap-2 rounded-xl border border-dashed border-slate-800 px-3 py-2 text-left text-xs text-slate-400 hover:border-slate-700 hover:text-slate-300"
-      >
-        <StickyNote size={14} className="mt-0.5 shrink-0" />
-        <span className="flex-1 break-words">{value || "메모 추가하기"}</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <textarea
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        rows={2}
-        placeholder="메모 (예: 외식, 컨디션, 양 등)"
-        className="input"
-        autoFocus
-      />
-      <div className="flex gap-2">
-        <button
-          onClick={() => {
-            setV(value);
-            setEditing(false);
-          }}
-          className="btn-secondary flex-1 py-2 text-sm"
-        >
-          취소
-        </button>
-        <button
-          onClick={() => {
-            onSave(v);
-            setEditing(false);
-          }}
-          className="btn-primary flex-1 py-2 text-sm"
-        >
-          저장
-        </button>
-      </div>
-    </div>
   );
 }

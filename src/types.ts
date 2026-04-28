@@ -83,8 +83,6 @@ export interface Meal {
     fat?: number;
     healthTags?: string[];
   };
-  /** 사용자 메모 */
-  notes?: string;
   /** AI 분석 상태 */
   analysisStatus: "pending" | "analyzing" | "done" | "error" | "skipped";
   analysisError?: string;
