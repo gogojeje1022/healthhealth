@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   query,
   setDoc,
@@ -148,4 +149,32 @@ export async function deleteComment(
   commentId: string,
 ): Promise<void> {
   await deleteDoc(doc(commentsCol(ownerUid, mealId), commentId));
+}
+
+// ---- meal 삭제 시 정리 -------------------------------------------------
+//
+// Firestore 클라이언트 SDK 는 부모 문서를 지워도 서브컬렉션을 자동으로 비우지
+// 않아 likes / comments 가 고아로 남는다. 식단 소유자가 삭제할 때 best-effort
+// 로 같이 청소한다(권한이 부족하거나 일부 실패해도 부모 삭제 흐름은 막지 않음).
+//
+// 베타 규모(슬롯당 좋아요·댓글 ≪ 100개) 라 클라이언트 일괄 삭제로 충분.
+
+async function bestEffortDeleteCollection(colRef: ReturnType<typeof collection>) {
+  try {
+    const snap = await getDocs(colRef);
+    await Promise.allSettled(snap.docs.map((d) => deleteDoc(d.ref)));
+  } catch (e) {
+    console.warn("[social] cleanup failed", e);
+  }
+}
+
+/** 식단 본인 삭제 시 호출 — 좋아요·댓글 서브컬렉션을 같이 비웁니다. */
+export async function cleanupMealSocial(
+  ownerUid: string,
+  mealId: string,
+): Promise<void> {
+  await Promise.allSettled([
+    bestEffortDeleteCollection(likesCol(ownerUid, mealId)),
+    bestEffortDeleteCollection(commentsCol(ownerUid, mealId)),
+  ]);
 }

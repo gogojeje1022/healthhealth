@@ -39,6 +39,9 @@ export async function clearLocalProfileDataPreservingDevicePreferences(): Promis
   });
 }
 
+// db.ts ↔ cloudSync.ts ↔ autoCloudSync.ts 사이의 순환 의존성을 끊기 위해
+// autoCloudSync 는 동적으로만 import 한다. (vite 가 dynamic+static 동시 import 경고를
+// 띄우지만 같은 청크라 실제 분리되지 않으니 무시해도 됩니다.)
 function scheduleAutoSyncAfterSettings(_patch: Partial<AppSettings>): void {
   void import("./autoCloudSync").then((m) => {
     m.ensureAutoCloudSyncListeners();

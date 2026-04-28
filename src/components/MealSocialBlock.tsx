@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { Heart, Loader2, MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -251,34 +258,16 @@ function CommentRow({
             </span>
           </div>
           {editing ? (
-            <div className="mt-1.5 space-y-1.5">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={2}
-                className="input text-xs"
-                autoFocus
-              />
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => {
-                    setEditing(false);
-                    setDraft(comment.text);
-                  }}
-                  className="btn-secondary flex-1 py-1 text-[11px]"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={save}
-                  disabled={busy !== null || !draft.trim()}
-                  className="btn-primary flex-1 py-1 text-[11px] disabled:opacity-60"
-                >
-                  {busy === "save" && <Loader2 size={10} className="animate-spin" />}
-                  저장
-                </button>
-              </div>
-            </div>
+            <CommentEditForm
+              draft={draft}
+              setDraft={setDraft}
+              busy={busy === "save"}
+              onCancel={() => {
+                setEditing(false);
+                setDraft(comment.text);
+              }}
+              onSave={save}
+            />
           ) : (
             <p className="mt-0.5 break-words text-[12px] leading-relaxed text-slate-200 whitespace-pre-wrap">
               {comment.text}
@@ -317,6 +306,60 @@ function CommentRow({
   );
 }
 
+function CommentEditForm({
+  draft,
+  setDraft,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  draft: string;
+  setDraft: (v: string) => void;
+  busy: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(taRef, draft);
+  return (
+    <div className="mt-1.5 space-y-1.5">
+      <textarea
+        ref={taRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            if (draft.trim() && !busy) onSave();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        rows={1}
+        className="input resize-none text-xs leading-relaxed"
+        autoFocus
+      />
+      <div className="flex gap-1.5">
+        <button
+          onClick={onCancel}
+          className="btn-secondary flex-1 py-1 text-[11px]"
+        >
+          취소
+        </button>
+        <button
+          onClick={onSave}
+          disabled={busy || !draft.trim()}
+          className="btn-primary flex-1 py-1 text-[11px] disabled:opacity-60"
+        >
+          {busy && <Loader2 size={10} className="animate-spin" />}
+          저장
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function NewCommentInput({
   ownerUid,
   mealId,
@@ -328,6 +371,7 @@ function NewCommentInput({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  useAutoGrow(taRef, text);
 
   async function submit() {
     if (!text.trim()) return;
@@ -345,7 +389,7 @@ function NewCommentInput({
   }
 
   return (
-    <div className="flex items-end gap-1.5">
+    <div className="flex flex-wrap items-end gap-1.5">
       <textarea
         ref={taRef}
         value={text}
@@ -358,7 +402,7 @@ function NewCommentInput({
         }}
         rows={1}
         placeholder="댓글 달기…"
-        className="input text-xs"
+        className="input min-w-0 flex-1 resize-none text-xs leading-relaxed"
       />
       <button
         type="button"
@@ -366,6 +410,7 @@ function NewCommentInput({
         disabled={busy || !text.trim()}
         className="btn-primary shrink-0 px-3 py-2 text-xs disabled:opacity-60"
         aria-label="댓글 보내기"
+        title="Cmd / Ctrl + Enter 로도 보낼 수 있어요"
       >
         {busy ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
       </button>
@@ -402,6 +447,26 @@ function CommentAvatar({ name, photoURL }: { name: string; photoURL?: string }) 
       {initial}
     </div>
   );
+}
+
+/**
+ * textarea 가 입력 길이에 맞춰 자동으로 늘어나도록 하는 훅.
+ * - rows 속성보다 직관적이고, 모바일에서 한 줄 댓글이 잘리지 않도록 한다.
+ * - 최대 높이는 maxPx (기본 7줄 정도) 까지만, 그 이상이면 내부 스크롤.
+ */
+function useAutoGrow(
+  ref: RefObject<HTMLTextAreaElement>,
+  value: string,
+  maxPx = 140,
+) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(el.scrollHeight, maxPx);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > maxPx ? "auto" : "hidden";
+  }, [ref, value, maxPx]);
 }
 
 function formatRelative(ts: number): string {

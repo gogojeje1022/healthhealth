@@ -14,6 +14,7 @@ import {
 import PhotoUpload from "../components/PhotoUpload";
 import { MealPhotoBlock } from "../components/MealCard";
 import MealSocialBlock from "../components/MealSocialBlock";
+import { cleanupMealSocial } from "../lib/social";
 import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
 import { useAuth } from "../contexts/AuthContext";
 import { formatKoDate } from "../lib/utils";
@@ -190,6 +191,11 @@ function SlotSection({ slot, date, userId, meal, apiKey, ownerUid }: SlotProps) 
     if (!confirm("이 기록을 삭제할까요?")) return;
     await db.meals.delete(meal.id);
     await registerCloudDelete("meals", meal.id);
+    if (ownerUid) {
+      // 좋아요·댓글 서브컬렉션은 부모 문서 삭제로 자동 정리되지 않으므로
+      // best-effort 로 같이 비운다. 실패해도 식단 삭제 자체는 진행됨.
+      void cleanupMealSocial(ownerUid, meal.id);
+    }
   }
 
   return (

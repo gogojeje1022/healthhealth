@@ -258,7 +258,25 @@ async function deleteRemoteMealsNotIn(uid: string, keep: Set<string>): Promise<v
   const fs = getFirestoreDb();
   const snap = await getDocs(collection(fs, "users", uid, "meals"));
   for (const d of snap.docs) {
-    if (!keep.has(d.id)) await deleteDoc(d.ref);
+    if (keep.has(d.id)) continue;
+    // Firestore 클라이언트 SDK 는 부모 doc 만 지우면 서브컬렉션이 고아로 남는다.
+    // 식단의 좋아요/댓글도 같이 best-effort 정리(다른 기기에서 삭제된 식단이 동기화될 때).
+    await Promise.allSettled([
+      deleteSubCollection(collection(d.ref, "likes")),
+      deleteSubCollection(collection(d.ref, "comments")),
+    ]);
+    await deleteDoc(d.ref);
+  }
+}
+
+async function deleteSubCollection(
+  colRef: ReturnType<typeof collection>,
+): Promise<void> {
+  try {
+    const snap = await getDocs(colRef);
+    await Promise.allSettled(snap.docs.map((d) => deleteDoc(d.ref)));
+  } catch (e) {
+    console.warn("[cloudSync] subcollection cleanup", e);
   }
 }
 
