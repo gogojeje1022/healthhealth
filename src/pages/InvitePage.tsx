@@ -4,8 +4,12 @@ import { CalendarDays, Check, HeartPulse, Loader2, LogIn, UserPlus, X } from "lu
 import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
 import { getFirestoreDb } from "../lib/firebaseApp";
-import { acceptRequest, normalizeEmail, rejectRequest } from "../lib/friends";
-import type { FriendRequest, ShareScope } from "../types";
+import {
+  acceptFollowRequest,
+  normalizeEmail,
+  rejectFollowRequest,
+} from "../lib/friends";
+import type { FollowRequest, ShareScope } from "../types";
 import { cls } from "../lib/utils";
 
 export default function InvitePage() {
@@ -13,9 +17,11 @@ export default function InvitePage() {
   const navigate = useNavigate();
   const { user, firebaseReady, signInWithGoogle, signInBusy, signInError } = useAuth();
 
-  const [req, setReq] = useState<FriendRequest | null | "missing">(null);
+  const [req, setReq] = useState<FollowRequest | null | "missing">(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [myShare, setMyShare] = useState<ShareScope>({ calendar: true, health: true });
+  // 기본은 "요청대로". 토글로 직접 선택할 수 있도록.
+  const [mode, setMode] = useState<"asis" | "custom">("asis");
+  const [custom, setCustom] = useState<ShareScope>({ calendar: true, health: true });
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [done, setDone] = useState<"accepted" | "rejected" | null>(null);
@@ -26,14 +32,14 @@ export default function InvitePage() {
     (async () => {
       try {
         const fs = getFirestoreDb();
-        const snap = await getDoc(doc(fs, "friendRequests", reqId));
+        const snap = await getDoc(doc(fs, "followRequests", reqId));
         if (cancelled) return;
         if (!snap.exists()) {
           setReq("missing");
         } else {
-          const data = { ...(snap.data() as FriendRequest), id: snap.id };
+          const data = { ...(snap.data() as FollowRequest), id: snap.id };
           setReq(data);
-          setMyShare(data.scopeFromRequester);
+          setCustom(data.requestedScope);
         }
       } catch (e) {
         if (!cancelled) {
@@ -56,10 +62,10 @@ export default function InvitePage() {
       <Shell>
         <h2 className="text-base font-semibold text-slate-100">
           <UserPlus size={16} className="mb-0.5 mr-1 inline text-brand-400" />
-          친구 초대
+          팔로우 신청
         </h2>
         <p className="text-sm text-slate-300">
-          초대를 수락하려면 받으신 이메일과 같은 Google 계정으로 로그인해 주세요.
+          신청을 수락하려면 받으신 이메일과 같은 Google 계정으로 로그인해 주세요.
         </p>
         <button
           type="button"
@@ -83,7 +89,7 @@ export default function InvitePage() {
     return (
       <Shell>
         <p className="text-sm text-slate-400">
-          <Loader2 size={14} className="mr-1 inline animate-spin" /> 초대 내용을 불러오는 중…
+          <Loader2 size={14} className="mr-1 inline animate-spin" /> 신청 내용을 불러오는 중…
         </p>
       </Shell>
     );
@@ -93,7 +99,7 @@ export default function InvitePage() {
     return (
       <Shell>
         <p className="text-sm text-slate-300">
-          초대가 존재하지 않거나, 이미 처리되었어요. 상대에게 다시 신청을 요청해 주세요.
+          신청이 존재하지 않거나, 이미 처리되었어요. 상대에게 다시 신청을 요청해 주세요.
         </p>
         {loadErr && (
           <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-200">
@@ -117,7 +123,7 @@ export default function InvitePage() {
     return (
       <Shell>
         <p className="text-sm text-slate-300">
-          이미 처리된 초대예요 (상태: {req.status}).
+          이미 처리된 신청이에요 (상태: {req.status}).
         </p>
         <button
           onClick={() => navigate("/friends")}
@@ -133,13 +139,13 @@ export default function InvitePage() {
     return (
       <Shell>
         <p className="text-sm text-slate-300">
-          이 초대는 <span className="font-medium text-slate-100">{req.toEmail}</span> 주소로 왔지만,
+          이 신청은 <span className="font-medium text-slate-100">{req.toEmail}</span> 주소로 왔지만,
           현재 로그인한 계정은{" "}
           <span className="font-medium text-slate-100">{myEmail || "(이메일 없음)"}</span>
           에요.
         </p>
         <p className="text-xs text-slate-400">
-          초대를 받은 Google 계정으로 다시 로그인한 뒤 이 링크를 열어 주세요.
+          신청을 받은 Google 계정으로 다시 로그인한 뒤 이 링크를 열어 주세요.
         </p>
       </Shell>
     );
@@ -148,12 +154,11 @@ export default function InvitePage() {
   if (done === "accepted") {
     return (
       <Shell>
-        <p className="text-sm text-emerald-200">친구가 되었어요!</p>
-        <Link
-          to={`/friends/${req.fromUid}`}
-          className="btn-primary block w-full py-2 text-center text-sm"
-        >
-          친구 프로필 보기
+        <p className="text-sm text-emerald-200">
+          수락했어요. 이제 {req.fromName}님이 내 기록을 볼 수 있어요.
+        </p>
+        <Link to="/friends" className="btn-primary block w-full py-2 text-center text-sm">
+          친구 탭으로
         </Link>
       </Shell>
     );
@@ -162,7 +167,7 @@ export default function InvitePage() {
   if (done === "rejected") {
     return (
       <Shell>
-        <p className="text-sm text-slate-300">초대를 거절했어요.</p>
+        <p className="text-sm text-slate-300">신청을 거절했어요.</p>
         <button
           onClick={() => navigate("/friends")}
           className="btn-secondary w-full py-2 text-sm"
@@ -173,12 +178,14 @@ export default function InvitePage() {
     );
   }
 
+  const finalScope = mode === "asis" ? req.requestedScope : custom;
+
   async function onAccept() {
     if (!req || req === "missing") return;
     setActionErr(null);
     setBusy("accept");
     try {
-      await acceptRequest(req.id, myShare);
+      await acceptFollowRequest(req.id, finalScope);
       setDone("accepted");
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : String(e));
@@ -191,7 +198,7 @@ export default function InvitePage() {
     setActionErr(null);
     setBusy("reject");
     try {
-      await rejectRequest(req.id);
+      await rejectFollowRequest(req.id);
       setDone("rejected");
     } catch (e) {
       setActionErr(e instanceof Error ? e.message : String(e));
@@ -204,7 +211,7 @@ export default function InvitePage() {
     <Shell>
       <h2 className="text-base font-semibold text-slate-100">
         <UserPlus size={16} className="mb-0.5 mr-1 inline text-brand-400" />
-        친구 초대
+        팔로우 신청
       </h2>
       <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
         <Avatar name={req.fromName} photoURL={req.fromPhotoURL} />
@@ -215,29 +222,40 @@ export default function InvitePage() {
       </div>
 
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-        <p className="text-[11px] text-slate-400">상대가 내게 공개할 범위</p>
+        <p className="text-[11px] text-slate-400">상대가 보고 싶은 범위</p>
         <p className="mt-0.5 text-xs font-medium text-slate-100">
-          {scopeText(req.scopeFromRequester)}
+          {scopeText(req.requestedScope)}
         </p>
       </div>
 
-      <div>
-        <p className="mb-2 text-[11px] text-slate-400">내가 상대에게 공개할 범위</p>
-        <div className="grid grid-cols-2 gap-2">
-          <ScopeBtn
-            label="달력 (식사)"
-            icon={<CalendarDays size={14} />}
-            checked={myShare.calendar}
-            onChange={(b) => setMyShare({ ...myShare, calendar: b })}
-          />
-          <ScopeBtn
-            label="건강"
-            icon={<HeartPulse size={14} />}
-            checked={myShare.health}
-            onChange={(b) => setMyShare({ ...myShare, health: b })}
-          />
-        </div>
+      <div className="flex gap-1 rounded-lg bg-slate-900/40 p-1 text-[11px]">
+        <ModeBtn active={mode === "asis"} onClick={() => setMode("asis")}>
+          요청대로 공개
+        </ModeBtn>
+        <ModeBtn active={mode === "custom"} onClick={() => setMode("custom")}>
+          직접 선택
+        </ModeBtn>
       </div>
+
+      {mode === "custom" && (
+        <div>
+          <p className="mb-2 text-[11px] text-slate-400">내가 공개할 범위</p>
+          <div className="grid grid-cols-2 gap-2">
+            <ScopeBtn
+              label="달력 (식사)"
+              icon={<CalendarDays size={14} />}
+              checked={custom.calendar}
+              onChange={(b) => setCustom({ ...custom, calendar: b })}
+            />
+            <ScopeBtn
+              label="건강"
+              icon={<HeartPulse size={14} />}
+              checked={custom.health}
+              onChange={(b) => setCustom({ ...custom, health: b })}
+            />
+          </div>
+        </div>
+      )}
 
       {actionErr && (
         <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
@@ -256,7 +274,7 @@ export default function InvitePage() {
         </button>
         <button
           onClick={onAccept}
-          disabled={busy !== null || (!myShare.calendar && !myShare.health)}
+          disabled={busy !== null || (!finalScope.calendar && !finalScope.health)}
           className="btn-primary flex-1 py-2 text-xs disabled:opacity-60"
         >
           {busy === "accept" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -277,6 +295,31 @@ function Shell({ children }: { children: React.ReactNode }) {
       </header>
       <section className="card space-y-3 p-4">{children}</section>
     </div>
+  );
+}
+
+function ModeBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cls(
+        "flex-1 rounded-md px-2 py-1.5 transition-colors",
+        active
+          ? "bg-brand-500/20 text-brand-100"
+          : "text-slate-400 hover:text-slate-200",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

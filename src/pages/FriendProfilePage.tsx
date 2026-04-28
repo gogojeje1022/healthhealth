@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { endOfMonth, endOfWeek, startOfMonth, startOfWeek } from "date-fns";
-import { ArrowLeft, CalendarDays, HeartPulse, Loader2, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  HeartPulse,
+  Loader2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import Calendar, { type DayCount } from "../components/Calendar";
 import HealthScoreRing from "../components/HealthScoreRing";
 import HealthRecordCard from "../components/HealthRecordCard";
 import {
-  friendshipIdFor,
+  getMyViewerShare,
   permissionDeniedMessage,
   pullFriendHealth,
   pullFriendMealsInRange,
 } from "../lib/friends";
-import { getFirestoreDb } from "../lib/firebaseApp";
-import { doc, getDoc } from "firebase/firestore";
-import { HEALTH_TYPE_LABELS, type Friendship, type HealthRecord } from "../types";
+import { HEALTH_TYPE_LABELS, type HealthRecord, type Share } from "../types";
 import { cls, dateKey, formatKoDate } from "../lib/utils";
 
 type Tab = "calendar" | "health";
@@ -23,7 +28,8 @@ export default function FriendProfilePage() {
   const { uid: friendUid = "" } = useParams();
   const navigate = useNavigate();
   const { user, firebaseReady } = useAuth();
-  const [friendship, setFriendship] = useState<Friendship | null | "missing">(null);
+  // null = 로딩, "missing" = 권한 없음(=share 문서 없음)
+  const [share, setShare] = useState<Share | null | "missing">(null);
   const [tab, setTab] = useState<Tab | null>(null);
 
   useEffect(() => {
@@ -31,19 +37,13 @@ export default function FriendProfilePage() {
     let cancelled = false;
     (async () => {
       try {
-        const fs = getFirestoreDb();
-        const fid = friendshipIdFor(user.uid, friendUid);
-        const snap = await getDoc(doc(fs, "friendships", fid));
+        const s = await getMyViewerShare(friendUid);
         if (cancelled) return;
-        if (!snap.exists()) {
-          setFriendship("missing");
-        } else {
-          setFriendship(snap.data() as Friendship);
-        }
+        setShare(s ?? "missing");
       } catch (e) {
         if (!cancelled) {
-          console.warn("[friend profile] friendship fetch", e);
-          setFriendship("missing");
+          console.warn("[friend profile] share fetch", e);
+          setShare("missing");
         }
       }
     })();
@@ -54,34 +54,42 @@ export default function FriendProfilePage() {
 
   if (!firebaseReady) return <Shell>Firebase 연동이 필요해요.</Shell>;
   if (!user) return <Shell>로그인이 필요해요.</Shell>;
-  if (friendship === null) {
+  if (share === null) {
     return (
       <Shell>
         <Loader2 size={16} className="mr-1 inline animate-spin" /> 불러오는 중…
       </Shell>
     );
   }
-  if (friendship === "missing") {
+  if (share === "missing") {
     return (
       <Shell>
-        <p className="mb-2">친구 관계를 찾을 수 없어요. 공유가 해제되었을 수 있어요.</p>
-        <button
-          onClick={() => navigate("/friends")}
-          className="btn-secondary py-2 text-xs"
-        >
-          친구 목록으로
-        </button>
+        <p className="mb-3">
+          이 친구가 공개한 기록이 없어요. 팔로우 신청을 보내면 상대가 수락한 범위만 볼 수 있어요.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate("/friends")}
+            className="btn-secondary flex-1 py-2 text-xs"
+          >
+            친구 목록으로
+          </button>
+          <button
+            onClick={() => navigate("/friends")}
+            className="btn-primary flex-1 py-2 text-xs"
+          >
+            <UserPlus size={12} /> 팔로우 신청
+          </button>
+        </div>
       </Shell>
     );
   }
 
-  const theirShare = friendship.shares[friendUid] ?? { calendar: false, health: false };
-  const name = friendship.names[friendUid] ?? "친구";
-  const email = friendship.emails[friendUid] ?? "";
-
-  const canCalendar = theirShare.calendar;
-  const canHealth = theirShare.health;
-  // tab 이 아직 선택되지 않았거나, 현재 선택된 탭이 비공개 범위면 공개된 쪽으로 폴백.
+  const name = share.ownerName || "친구";
+  const email = share.ownerEmail || "";
+  const canCalendar = share.scope.calendar;
+  const canHealth = share.scope.health;
+  // tab 미선택이거나 비공개 범위면 공개된 쪽으로 폴백.
   const activeTab: Tab =
     tab && ((tab === "calendar" && canCalendar) || (tab === "health" && canHealth))
       ? tab
@@ -313,4 +321,3 @@ function FriendHealthTab({ friendUid }: { friendUid: string }) {
     </>
   );
 }
-

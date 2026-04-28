@@ -11,7 +11,7 @@
 - 🤖 **AI 식단 분석 (Gemini)** — 사진 → 메뉴 텍스트 변환, 5점 만점 별점, 한 줄 평, 칼로리/탄단지 추정.
 - ❤️ **건강 프로필** — 건강검진표 / 인바디 사진을 올리면 OCR + 100점 만점 건강 점수 자동 평가, 강점·주의·권장 코멘트 제공.
 - 👤 **프로필** — 한 명의 식단·건강 기록을 이름·색으로 표시.
-- 👥 **친구 공유 (Gmail)** — 이메일로 친구를 신청하고, **달력/건강**을 **각자 독립적으로** 공개 선택. 친구 프로필에서 허용된 기록만 읽기 전용으로 표시됩니다.
+- 👥 **팔로우 공유 (Gmail)** — 인스타그램과 같은 단방향 팔로우. 이메일로 신청해 상대가 수락하면 그 사람의 기록을 내가 볼 수 있어요. 맞팔하려면 상대도 같은 절차로 신청하면 됩니다.
 - 📲 **PWA** — 모바일 홈 화면에 설치 가능, 오프라인 캐시 지원.
 - 🔒 **기본 클라이언트 사이드** — 본인 데이터는 브라우저 IndexedDB 에 저장되고, Firebase 로그인 시 Firestore 로 동기화됩니다. 친구 공유는 Firestore 경유(로컬에 친구 데이터를 저장하지 않음).
 
@@ -77,20 +77,21 @@ npm run dev
 
 `public/CNAME` 파일에 도메인을 한 줄로 적고, 워크플로우 환경변수에서 `VITE_BASE_PATH=/` 로 설정하세요.
 
-## 👥 친구 공유 기능
+## 👥 친구(팔로우) 공유 기능
 
-Gmail(Firebase Auth) 기반으로 친구와 기록을 공유할 수 있어요.
+Gmail(Firebase Auth) 기반의 **단방향 팔로우** 모델입니다. 인스타그램과 동일한 의미로 "내가 신청 = 상대 기록을 보고 싶어요" 입니다.
 
 ### 사용 방법
 
 1. **로그인** — 설정 탭에서 Google 계정으로 로그인.
-2. **친구 신청** — 하단의 **친구** 탭 → 친구 이메일 입력 + **내가 공개할 범위**(달력/건강) 선택 → "친구 신청 보내기".
+2. **팔로우 신청** — 하단의 **친구** 탭 → 상대 이메일 입력 + **내가 보고 싶은 범위**(달력/건강) 선택 → "팔로우 신청 보내기".
 3. **초대 링크 공유** — 신청 직후 표시되는 **링크 복사** 또는 **메일로 열기** 버튼으로 상대에게 전달.
-4. **수락** — 받은 사람은 같은 이메일의 Google 계정으로 로그인 후 **친구 → 받은 신청**(또는 초대 링크)에서 자신이 공개할 범위를 선택해 수락.
-5. **프로필 열람** — 친구 카드를 탭하면 허용된 범위(달력/건강)만 읽기 전용으로 볼 수 있어요.
-6. **공유 범위 변경 / 친구 해제** — 친구 카드에서 "내 공유 범위 변경" / "친구 해제"로 언제든 조정 가능.
+4. **수락** — 받은 사람은 같은 이메일의 Google 계정으로 로그인 후 **친구 → 받은 신청**(또는 초대 링크)에서 **요청대로 공개** 또는 **직접 선택**해 수락. 수락하면 그 사람(=수락자)의 기록 중 선택된 범위만 신청자에게 공개됩니다.
+5. **프로필 열람** — 친구 카드를 탭하면 상대가 공개한 범위(달력/건강)만 읽기 전용으로 볼 수 있어요.
+6. **상태 표시** — 친구 카드에 **맞팔 / 팔로우 중 / 나를 팔로우** 뱃지가 표시되며, 한 방향만 연결된 상대에게는 **나도 팔로우 신청** 버튼이 노출됩니다.
+7. **변경 / 끊기** — 내가 owner 인 share 는 **공개 범위 변경 / 공개 중단** 가능, viewer 인 share 는 **팔로우 끊기** 가능.
 
-> 각자 공개 범위는 **독립**이에요. 예: 내가 달력+건강을 공개해도, 상대가 달력만 공개하면 나는 상대의 달력만 볼 수 있어요.
+> 한 방향당 하나의 share 문서가 만들어집니다. 맞팔이면 두 개의 share. 어느 한쪽이 share 를 끊으면 그 방향만 즉시 차단되고 반대 방향은 영향이 없습니다.
 
 ### Firestore 규칙 배포
 
@@ -102,10 +103,11 @@ npm run deploy:firestore-rules
 
 규칙 요약:
 
-- `users/{uid}/meals|health` — 본인은 전체, 친구는 `friendships/{fid}.shares[uid][scope] == true` 일 때만 read.
+- `users/{uid}/meals|health` — 본인은 전체, 친구는 `shares/{ownerUid}_{viewerUid}` 문서에 본인이 viewer 로 있고 해당 scope 가 true 일 때만 read.
 - `publicProfiles/{uid}` — 로그인 사용자 모두 read, 본인만 write.
-- `friendRequests/{id}` — 보낸 사람 또는 `toEmail == auth.token.email` 만 read/update.
-- `friendships/{fid}` — 당사자만 read/write. 자기 `shares[me]` 만 수정 가능.
+- `followRequests/{id}` — 보낸 사람 또는 `toEmail == auth.token.email` 만 read/update/delete.
+- `shares/{ownerUid}_{viewerUid}` — 당사자(owner/viewer) 모두 read 가능, owner 만 create/update, 양쪽 모두 delete 가능.
+- `friendships/{fid}` — 레거시. 신규 코드는 더 이상 사용하지 않으며 read/delete 만 허용됩니다. 기존 사용자는 한 번 다시 팔로우 신청을 주고받으면 됩니다.
 
 ### Firestore 복합 인덱스 안내
 
@@ -141,9 +143,9 @@ src/
 │   ├── db.ts       # Dexie 스키마 + getSettings/patchSettings
 │   ├── ai.ts       # Gemini 식단/건강 분석
 │   ├── image.ts    # 이미지 압축, 썸네일, blob URL 캐시
-│   ├── friends.ts  # publicProfiles / friendRequests / friendships CRUD·구독
+│   ├── friends.ts  # publicProfiles / followRequests / shares CRUD·구독
 │   └── utils.ts    # 날짜, 점수, 색상 유틸
-├── types.ts        # User, Meal, HealthRecord, MealSlot, Friendship, FriendRequest 등
+├── types.ts        # User, Meal, HealthRecord, MealSlot, Share, FollowRequest 등
 ├── App.tsx         # 라우터 + 온보딩 가드
 ├── main.tsx
 └── index.css       # Tailwind + 공용 컴포넌트 클래스

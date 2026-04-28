@@ -15,11 +15,11 @@ import {
 } from "firebase/firestore";
 import type { User as FirebaseUser } from "firebase/auth";
 import type {
-  Friendship,
-  FriendRequest,
+  FollowRequest,
   HealthRecord,
   Meal,
   PublicProfile,
+  Share,
   ShareScope,
 } from "../types";
 import { getFirebaseAuth, getFirestoreDb } from "./firebaseApp";
@@ -34,8 +34,9 @@ export function normalizeEmail(s: string): string {
   return s.trim().toLowerCase();
 }
 
-export function friendshipIdFor(a: string, b: string): string {
-  return a < b ? `${a}_${b}` : `${b}_${a}`;
+/** owner-viewer 한 방향당 한 문서 — `${ownerUid}_${viewerUid}`. */
+export function shareIdFor(ownerUid: string, viewerUid: string): string {
+  return `${ownerUid}_${viewerUid}`;
 }
 
 function requireUser(): FirebaseUser {
@@ -50,6 +51,12 @@ function requireEmail(u: FirebaseUser): string {
   if (!e) throw new Error("Google 계정에 이메일이 없습니다.");
   return normalizeEmail(e);
 }
+
+function isEmptyScope(s: ShareScope): boolean {
+  return !s.calendar && !s.health;
+}
+
+// ---- 공개 프로필 --------------------------------------------------------
 
 /** 로그인한 사용자의 공개 프로필을 Firestore 에 upsert (친구가 이름·이메일을 볼 수 있도록) */
 export async function upsertMyPublicProfile(u: FirebaseUser): Promise<void> {
@@ -74,26 +81,26 @@ export async function getPublicProfile(uid: string): Promise<PublicProfile | nul
   return snap.data() as PublicProfile;
 }
 
-// ---- 친구 신청 ----------------------------------------------------------
+// ---- follow 신청 --------------------------------------------------------
 
-export async function sendFriendRequest(
+export async function sendFollowRequest(
   toEmailRaw: string,
-  scope: ShareScope,
-): Promise<FriendRequest> {
+  requestedScope: ShareScope,
+): Promise<FollowRequest> {
   const me = requireUser();
   const myEmail = requireEmail(me);
   const toEmail = normalizeEmail(toEmailRaw);
   if (!toEmail) throw new Error("이메일을 입력해 주세요.");
   if (toEmail === myEmail) throw new Error("본인에게는 신청할 수 없어요.");
-  if (!scope.calendar && !scope.health)
-    throw new Error("공유할 범위를 하나 이상 선택해 주세요.");
+  if (isEmptyScope(requestedScope))
+    throw new Error("보고 싶은 범위를 하나 이상 선택해 주세요.");
 
   const fs = getFirestoreDb();
 
-  // 같은 대상에게 pending 신청이 이미 있으면 재사용
+  // 같은 대상에게 pending 신청이 이미 있으면 재사용 (인스타에서도 follow 신청은 한 번만 가능)
   const existingSnap = await getDocs(
     query(
-      collection(fs, "friendRequests"),
+      collection(fs, "followRequests"),
       where("fromUid", "==", me.uid),
       where("toEmail", "==", toEmail),
       where("status", "==", "pending"),
@@ -101,86 +108,83 @@ export async function sendFriendRequest(
   );
   if (!existingSnap.empty) {
     const d = existingSnap.docs[0];
-    return { ...(d.data() as FriendRequest), id: d.id };
+    return { ...(d.data() as FollowRequest), id: d.id };
   }
 
-  const id = doc(collection(fs, "friendRequests")).id;
+  const id = doc(collection(fs, "followRequests")).id;
   const now = Date.now();
-  const data: FriendRequest = {
+  const data: FollowRequest = {
     id,
     fromUid: me.uid,
     fromEmail: myEmail,
     fromName: me.displayName ?? myEmail,
     fromPhotoURL: me.photoURL ?? undefined,
     toEmail,
-    scopeFromRequester: scope,
+    requestedScope,
     status: "pending",
     createdAt: now,
     updatedAt: now,
   };
   const clean: Record<string, unknown> = { ...data };
   if (clean.fromPhotoURL === undefined) delete clean.fromPhotoURL;
-  await setDoc(doc(fs, "friendRequests", id), clean);
+  await setDoc(doc(fs, "followRequests", id), clean);
   return data;
 }
 
-export async function cancelRequest(reqId: string): Promise<void> {
+export async function cancelFollowRequest(reqId: string): Promise<void> {
   const fs = getFirestoreDb();
-  await deleteDoc(doc(fs, "friendRequests", reqId));
+  await deleteDoc(doc(fs, "followRequests", reqId));
 }
 
-export async function rejectRequest(reqId: string): Promise<void> {
+export async function rejectFollowRequest(reqId: string): Promise<void> {
   const fs = getFirestoreDb();
-  await updateDoc(doc(fs, "friendRequests", reqId), {
+  await updateDoc(doc(fs, "followRequests", reqId), {
     status: "rejected",
     updatedAt: Date.now(),
   });
 }
 
-/** 수락 — 요청 상태 변경 + friendships 문서 생성 (batch) */
-export async function acceptRequest(
+/**
+ * 수락 — 수신자(=수락자)가 owner 인 share 문서를 만들고 요청 상태를 갱신.
+ * finalScope: 수락자가 실제로 공개할 범위 (요청대로 또는 조정).
+ */
+export async function acceptFollowRequest(
   reqId: string,
-  myShareToRequester: ShareScope,
-): Promise<Friendship> {
+  finalScope: ShareScope,
+): Promise<Share> {
   const me = requireUser();
   const myEmail = requireEmail(me);
-  const fs = getFirestoreDb();
+  if (isEmptyScope(finalScope))
+    throw new Error("공개할 범위를 하나 이상 선택해 주세요.");
 
-  const reqRef = doc(fs, "friendRequests", reqId);
+  const fs = getFirestoreDb();
+  const reqRef = doc(fs, "followRequests", reqId);
   const reqSnap = await getDoc(reqRef);
-  if (!reqSnap.exists()) throw new Error("이미 사라진 친구신청이에요.");
-  const req = reqSnap.data() as FriendRequest;
+  if (!reqSnap.exists()) throw new Error("이미 사라진 팔로우 신청이에요.");
+  const req = reqSnap.data() as FollowRequest;
   if (req.toEmail !== myEmail) throw new Error("내 계정으로 온 신청이 아니에요.");
   if (req.status !== "pending") throw new Error("이미 처리된 신청이에요.");
   if (req.fromUid === me.uid) throw new Error("본인 신청은 수락할 수 없어요.");
 
-  const fid = friendshipIdFor(me.uid, req.fromUid);
-  const users = me.uid < req.fromUid ? [me.uid, req.fromUid] : [req.fromUid, me.uid];
+  const sid = shareIdFor(me.uid, req.fromUid);
   const now = Date.now();
-  const friendship: Friendship = {
-    id: fid,
-    users: users as [string, string],
-    shares: {
-      [req.fromUid]: req.scopeFromRequester,
-      [me.uid]: myShareToRequester,
-    },
-    emails: {
-      [req.fromUid]: req.fromEmail,
-      [me.uid]: myEmail,
-    },
-    names: {
-      [req.fromUid]: req.fromName,
-      [me.uid]: me.displayName ?? myEmail,
-    },
-    photos: {},
+  const share: Share = {
+    id: sid,
+    ownerUid: me.uid,
+    viewerUid: req.fromUid,
+    scope: finalScope,
+    ownerEmail: myEmail,
+    ownerName: me.displayName ?? myEmail,
+    ownerPhotoURL: me.photoURL ?? undefined,
+    viewerEmail: req.fromEmail,
+    viewerName: req.fromName,
+    viewerPhotoURL: req.fromPhotoURL,
     createdAt: now,
     updatedAt: now,
   };
-  if (req.fromPhotoURL) friendship.photos![req.fromUid] = req.fromPhotoURL;
-  if (me.photoURL) friendship.photos![me.uid] = me.photoURL;
-  if (friendship.photos && Object.keys(friendship.photos).length === 0) {
-    delete friendship.photos;
-  }
+  const clean: Record<string, unknown> = { ...share };
+  if (clean.ownerPhotoURL === undefined) delete clean.ownerPhotoURL;
+  if (clean.viewerPhotoURL === undefined) delete clean.viewerPhotoURL;
 
   const batch = writeBatch(fs);
   batch.update(reqRef, {
@@ -188,30 +192,30 @@ export async function acceptRequest(
     toUid: me.uid,
     updatedAt: now,
   });
-  batch.set(doc(fs, "friendships", fid), friendship);
+  batch.set(doc(fs, "shares", sid), clean);
   await batch.commit();
 
-  return friendship;
+  return share;
 }
 
-// ---- 실시간 구독 ---------------------------------------------------------
-// 주의: Firestore 는 서로 다른 필드의 equality 여러 개를 한 쿼리에 섞거나,
-// array-contains + orderBy 를 같이 쓰면 복합 인덱스를 요구한다.
-// 인덱스 생성을 강제하지 않기 위해 where 는 하나만 쓰고 정렬·필터는 클라이언트에서 처리.
+// ---- 실시간 구독 --------------------------------------------------------
+// Firestore 는 서로 다른 필드의 equality 여러 개를 한 쿼리에 섞거나,
+// array-contains + orderBy 를 같이 쓰면 복합 인덱스를 요구합니다.
+// 인덱스 강제 생성을 피하기 위해 where 는 하나만 쓰고 정렬·필터는 클라이언트에서 처리.
 
 function subscribeRequests(
   cons: QueryConstraint[],
-  filter: (r: FriendRequest) => boolean,
-  cb: (rows: FriendRequest[]) => void,
+  filter: (r: FollowRequest) => boolean,
+  cb: (rows: FollowRequest[]) => void,
   onErr?: (e: unknown) => void,
 ): Unsubscribe {
   const fs = getFirestoreDb();
-  const q = query(collection(fs, "friendRequests"), ...cons);
+  const q = query(collection(fs, "followRequests"), ...cons);
   return onSnapshot(
     q,
     (snap) => {
       const rows = snap.docs
-        .map((d) => ({ ...(d.data() as FriendRequest), id: d.id }))
+        .map((d) => ({ ...(d.data() as FollowRequest), id: d.id }))
         .filter(filter)
         .sort((a, b) => b.createdAt - a.createdAt);
       cb(rows);
@@ -224,7 +228,7 @@ function subscribeRequests(
 }
 
 export function subscribeIncomingRequests(
-  cb: (rows: FriendRequest[]) => void,
+  cb: (rows: FollowRequest[]) => void,
   onErr?: (e: unknown) => void,
 ): Unsubscribe {
   const u = requireUser();
@@ -238,7 +242,7 @@ export function subscribeIncomingRequests(
 }
 
 export function subscribeOutgoingRequests(
-  cb: (rows: FriendRequest[]) => void,
+  cb: (rows: FollowRequest[]) => void,
   onErr?: (e: unknown) => void,
 ): Unsubscribe {
   const u = requireUser();
@@ -250,49 +254,77 @@ export function subscribeOutgoingRequests(
   );
 }
 
-export function subscribeFriendships(
-  cb: (rows: Friendship[]) => void,
+function subscribeShares(
+  cons: QueryConstraint[],
+  cb: (rows: Share[]) => void,
   onErr?: (e: unknown) => void,
 ): Unsubscribe {
-  const u = requireUser();
   const fs = getFirestoreDb();
-  // array-contains + orderBy 조합은 복합 인덱스 필요 → orderBy 제거, 클라이언트 정렬
-  const q = query(
-    collection(fs, "friendships"),
-    where("users", "array-contains", u.uid),
-  );
+  const q = query(collection(fs, "shares"), ...cons);
   return onSnapshot(
     q,
     (snap) => {
       const rows = snap.docs
-        .map((d) => d.data() as Friendship)
+        .map((d) => ({ ...(d.data() as Share), id: d.id }))
         .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
       cb(rows);
     },
     (err) => {
-      console.error("[friends] friendships subscribe", err);
+      console.error("[friends] shares subscribe", err);
       onErr?.(err);
     },
   );
 }
 
-// ---- 친구 관계 변경 ------------------------------------------------------
+/** 내가 팔로우 중인 사람들 (= 내가 viewer 인 share). */
+export function subscribeOutgoingShares(
+  cb: (rows: Share[]) => void,
+  onErr?: (e: unknown) => void,
+): Unsubscribe {
+  const u = requireUser();
+  return subscribeShares([where("viewerUid", "==", u.uid)], cb, onErr);
+}
 
-export async function updateMyShare(
-  friendshipDocId: string,
+/** 나를 팔로우 중인 사람들 (= 내가 owner 인 share). */
+export function subscribeIncomingShares(
+  cb: (rows: Share[]) => void,
+  onErr?: (e: unknown) => void,
+): Unsubscribe {
+  const u = requireUser();
+  return subscribeShares([where("ownerUid", "==", u.uid)], cb, onErr);
+}
+
+// ---- share 변경 / 삭제 --------------------------------------------------
+
+/** 내가 owner 인 share 의 공개 범위 변경. viewer 는 내 share 를 직접 변경할 수 없습니다. */
+export async function updateOutgoingScope(
+  viewerUid: string,
   newScope: ShareScope,
 ): Promise<void> {
   const u = requireUser();
+  if (isEmptyScope(newScope))
+    throw new Error("공개할 범위를 하나 이상 선택해 주세요.");
   const fs = getFirestoreDb();
-  await updateDoc(doc(fs, "friendships", friendshipDocId), {
-    [`shares.${u.uid}`]: newScope,
+  const sid = shareIdFor(u.uid, viewerUid);
+  await updateDoc(doc(fs, "shares", sid), {
+    scope: newScope,
     updatedAt: Date.now(),
   });
 }
 
-export async function removeFriendship(friendshipDocId: string): Promise<void> {
+/** owner 또는 viewer 가 share 를 끊습니다 (인스타 unfollow / 팔로워 삭제 양쪽 가능). */
+export async function removeShare(shareId: string): Promise<void> {
   const fs = getFirestoreDb();
-  await deleteDoc(doc(fs, "friendships", friendshipDocId));
+  await deleteDoc(doc(fs, "shares", shareId));
+}
+
+/** 특정 owner 의 내(viewer) share 한 건을 직접 가져옵니다. (FriendProfilePage 등에서 권한 확인용) */
+export async function getMyViewerShare(ownerUid: string): Promise<Share | null> {
+  const me = requireUser();
+  const fs = getFirestoreDb();
+  const snap = await getDoc(doc(fs, "shares", shareIdFor(ownerUid, me.uid)));
+  if (!snap.exists()) return null;
+  return { ...(snap.data() as Share), id: snap.id };
 }
 
 // ---- 친구 데이터 읽기 (로컬 캐시 없음) -----------------------------------
@@ -344,10 +376,6 @@ export async function pullFriendHealth(
 }
 
 // ---- 편의 함수 ----------------------------------------------------------
-
-export function otherUidOf(f: Friendship, myUid: string): string {
-  return f.users[0] === myUid ? f.users[1] : f.users[0];
-}
 
 export function permissionDeniedMessage(e: unknown): string {
   const code = (e as { code?: string })?.code;

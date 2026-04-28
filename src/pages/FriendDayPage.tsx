@@ -4,19 +4,17 @@ import { ArrowLeft, Loader2, StickyNote } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { MealAnalysisBlock, MealPhotoBlock } from "../components/MealCard";
 import {
-  friendshipIdFor,
+  getMyViewerShare,
   permissionDeniedMessage,
   pullFriendMealsForDate,
 } from "../lib/friends";
-import { getFirestoreDb } from "../lib/firebaseApp";
-import { doc, getDoc } from "firebase/firestore";
 import {
   MEAL_SLOTS,
   MEAL_SLOT_EMOJI,
   MEAL_SLOT_LABELS,
-  type Friendship,
   type Meal,
   type MealSlot,
+  type Share,
 } from "../types";
 import { formatKoDate } from "../lib/utils";
 
@@ -24,7 +22,7 @@ export default function FriendDayPage() {
   const { uid: friendUid = "", date = "" } = useParams();
   const navigate = useNavigate();
   const { user, firebaseReady } = useAuth();
-  const [friendship, setFriendship] = useState<Friendship | null | "missing">(null);
+  const [share, setShare] = useState<Share | null | "missing">(null);
   const [meals, setMeals] = useState<Meal[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -35,15 +33,13 @@ export default function FriendDayPage() {
     let cancelled = false;
     (async () => {
       try {
-        const fs = getFirestoreDb();
-        const fid = friendshipIdFor(user.uid, friendUid);
-        const snap = await getDoc(doc(fs, "friendships", fid));
+        const s = await getMyViewerShare(friendUid);
         if (cancelled) return;
-        setFriendship(snap.exists() ? (snap.data() as Friendship) : "missing");
+        setShare(s ?? "missing");
       } catch (e) {
         if (!cancelled) {
-          console.warn("[friend day] friendship fetch", e);
-          setFriendship("missing");
+          console.warn("[friend day] share fetch", e);
+          setShare("missing");
         }
       }
     })();
@@ -53,9 +49,9 @@ export default function FriendDayPage() {
   }, [user?.uid, friendUid]);
 
   const canCalendar = useMemo(() => {
-    if (!friendship || friendship === "missing") return false;
-    return !!friendship.shares[friendUid]?.calendar;
-  }, [friendship, friendUid]);
+    if (!share || share === "missing") return false;
+    return !!share.scope.calendar;
+  }, [share]);
 
   useEffect(() => {
     if (!canCalendar || !validDate) return;
@@ -83,22 +79,22 @@ export default function FriendDayPage() {
   if (!firebaseReady) return <Shell onBack={() => navigate(-1)}>Firebase 연동이 필요해요.</Shell>;
   if (!user) return <Shell onBack={() => navigate(-1)}>로그인이 필요해요.</Shell>;
   if (!validDate) return <Shell onBack={() => navigate(-1)}>잘못된 날짜입니다.</Shell>;
-  if (friendship === null) {
+  if (share === null) {
     return (
       <Shell onBack={() => navigate(-1)}>
         <Loader2 size={16} className="mr-1 inline animate-spin" /> 불러오는 중…
       </Shell>
     );
   }
-  if (friendship === "missing" || !canCalendar) {
+  if (share === "missing" || !canCalendar) {
     return (
       <Shell onBack={() => navigate(-1)}>
-        달력이 공유되어 있지 않아요.
+        이 친구의 식사 기록이 내게 공개되어 있지 않아요.
       </Shell>
     );
   }
 
-  const name = friendship.names[friendUid] ?? "친구";
+  const name = share.ownerName ?? "친구";
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-4">

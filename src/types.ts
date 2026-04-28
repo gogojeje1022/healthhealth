@@ -159,40 +159,54 @@ export interface PublicProfile {
   updatedAt: number;
 }
 
-export type FriendRequestStatus =
+export type FollowRequestStatus =
   | "pending"
   | "accepted"
   | "rejected"
   | "cancelled";
 
-/** /friendRequests/{id} */
-export interface FriendRequest {
+/**
+ * /followRequests/{id}
+ *
+ * 인스타그램 follow 신청과 동일한 의미입니다.
+ * 신청자(fromUid)가 수신자(toEmail/toUid)에게 "당신의 기록을 보고 싶어요"라고 요청합니다.
+ * 수락되면 수신자가 owner, 신청자가 viewer 인 단방향 share 문서가 만들어집니다.
+ */
+export interface FollowRequest {
   id: string;
+  /** 신청자(viewer 후보) */
   fromUid: string;
   fromEmail: string;
   fromName: string;
   fromPhotoURL?: string;
-  /** 소문자 정규화 */
+  /** 수신자(owner 후보) — 소문자 정규화 */
   toEmail: string;
-  /** 수락 전까지 비어 있을 수 있음 */
+  /** 수락 시 채워짐 */
   toUid?: string;
-  /** 신청자가 공개할 범위 */
-  scopeFromRequester: ShareScope;
-  status: FriendRequestStatus;
+  /** 신청자가 보고 싶은 범위 (수신자에게 공개를 요청하는 범위) */
+  requestedScope: ShareScope;
+  status: FollowRequestStatus;
   createdAt: number;
   updatedAt: number;
 }
 
-/** /friendships/{`${min}_${max}`} */
-export interface Friendship {
+/**
+ * /shares/{ownerUid}_{viewerUid}
+ *
+ * 한 방향당 한 문서. owner 의 데이터 중 scope 에 해당하는 부분이 viewer 에게 보입니다.
+ * 맞팔이면 두 개의 share 문서(서로 owner/viewer 가 뒤집힌)가 존재합니다.
+ */
+export interface Share {
   id: string;
-  /** 정렬된 두 UID */
-  users: [string, string];
-  /** 각 사용자(uid)가 상대에게 공개하는 범위 */
-  shares: Record<string, ShareScope>;
-  emails: Record<string, string>;
-  names: Record<string, string>;
-  photos?: Record<string, string>;
+  ownerUid: string;
+  viewerUid: string;
+  scope: ShareScope;
+  ownerEmail: string;
+  ownerName: string;
+  ownerPhotoURL?: string;
+  viewerEmail: string;
+  viewerName: string;
+  viewerPhotoURL?: string;
   createdAt: number;
   updatedAt: number;
 }

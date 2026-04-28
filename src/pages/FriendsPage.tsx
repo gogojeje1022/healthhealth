@@ -5,6 +5,7 @@ import {
   Check,
   ChevronRight,
   Copy,
+  Eye,
   HeartPulse,
   Link2,
   Loader2,
@@ -17,18 +18,18 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  acceptRequest,
-  cancelRequest,
-  otherUidOf,
-  rejectRequest,
-  removeFriendship,
-  sendFriendRequest,
-  subscribeFriendships,
+  acceptFollowRequest,
+  cancelFollowRequest,
+  rejectFollowRequest,
+  removeShare,
+  sendFollowRequest,
   subscribeIncomingRequests,
+  subscribeIncomingShares,
   subscribeOutgoingRequests,
-  updateMyShare,
+  subscribeOutgoingShares,
+  updateOutgoingScope,
 } from "../lib/friends";
-import type { Friendship, FriendRequest, ShareScope } from "../types";
+import type { FollowRequest, Share, ShareScope } from "../types";
 import FirebaseLoginCard from "../components/FirebaseLoginCard";
 import { cls } from "../lib/utils";
 
@@ -37,16 +38,18 @@ type Tab = "friends" | "incoming" | "outgoing";
 export default function FriendsPage() {
   const { user, firebaseReady } = useAuth();
   const [tab, setTab] = useState<Tab>("friends");
-  const [friendships, setFriendships] = useState<Friendship[] | null>(null);
-  const [incoming, setIncoming] = useState<FriendRequest[] | null>(null);
-  const [outgoing, setOutgoing] = useState<FriendRequest[] | null>(null);
+  const [outShares, setOutShares] = useState<Share[] | null>(null);
+  const [inShares, setInShares] = useState<Share[] | null>(null);
+  const [incoming, setIncoming] = useState<FollowRequest[] | null>(null);
+  const [outgoing, setOutgoing] = useState<FollowRequest[] | null>(null);
   const [errF, setErrF] = useState<string | null>(null);
   const [errI, setErrI] = useState<string | null>(null);
   const [errO, setErrO] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
-      setFriendships(null);
+      setOutShares(null);
+      setInShares(null);
       setIncoming(null);
       setOutgoing(null);
       setErrF(null);
@@ -55,11 +58,15 @@ export default function FriendsPage() {
       return;
     }
     const toMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-    const unsubF = subscribeFriendships(
+    const unsubOut = subscribeOutgoingShares(
       (rows) => {
         setErrF(null);
-        setFriendships(rows);
+        setOutShares(rows);
       },
+      (e) => setErrF(toMsg(e)),
+    );
+    const unsubIn = subscribeIncomingShares(
+      (rows) => setInShares(rows),
       (e) => setErrF(toMsg(e)),
     );
     const unsubI = subscribeIncomingRequests(
@@ -77,11 +84,15 @@ export default function FriendsPage() {
       (e) => setErrO(toMsg(e)),
     );
     return () => {
-      unsubF();
+      unsubOut();
+      unsubIn();
       unsubI();
       unsubO();
     };
   }, [user?.uid]);
+
+  const friendCount =
+    outShares && inShares ? new Set([...outShares.map((s) => s.ownerUid), ...inShares.map((s) => s.viewerUid)]).size : 0;
 
   if (!firebaseReady) {
     return (
@@ -112,7 +123,7 @@ export default function FriendsPage() {
 
       <div className="flex gap-1 rounded-xl bg-slate-900/60 p-1">
         <TabButton active={tab === "friends"} onClick={() => setTab("friends")}>
-          친구 {friendships?.length ? `(${friendships.length})` : ""}
+          친구 {friendCount ? `(${friendCount})` : ""}
         </TabButton>
         <TabButton active={tab === "incoming"} onClick={() => setTab("incoming")}>
           받은 신청 {incoming?.length ? `(${incoming.length})` : ""}
@@ -123,14 +134,15 @@ export default function FriendsPage() {
       </div>
 
       {tab === "friends" && (
-        <FriendsTab friendships={friendships} myUid={user.uid} error={errF} />
+        <FriendsTab
+          outShares={outShares}
+          inShares={inShares}
+          myUid={user.uid}
+          error={errF}
+        />
       )}
-      {tab === "incoming" && (
-        <IncomingTab requests={incoming} error={errI} />
-      )}
-      {tab === "outgoing" && (
-        <OutgoingTab requests={outgoing} error={errO} />
-      )}
+      {tab === "incoming" && <IncomingTab requests={incoming} error={errI} />}
+      {tab === "outgoing" && <OutgoingTab requests={outgoing} error={errO} />}
     </div>
   );
 }
@@ -174,30 +186,86 @@ function TabButton({
 
 // ---- 친구 목록 탭 --------------------------------------------------------
 
+interface FriendRow {
+  /** 상대 uid */
+  otherUid: string;
+  name: string;
+  email: string;
+  photo?: string;
+  /** 내가 owner — 내가 상대에게 공개하는 share */
+  outgoing?: Share;
+  /** 내가 viewer — 상대가 내게 공개하는 share */
+  incoming?: Share;
+}
+
+function combineRows(outShares: Share[], inShares: Share[]): FriendRow[] {
+  const map = new Map<string, FriendRow>();
+  for (const s of outShares) {
+    const other = s.viewerUid;
+    map.set(other, {
+      otherUid: other,
+      name: s.viewerName,
+      email: s.viewerEmail,
+      photo: s.viewerPhotoURL,
+      outgoing: s,
+    });
+  }
+  for (const s of inShares) {
+    const other = s.ownerUid;
+    const cur = map.get(other);
+    if (cur) {
+      cur.incoming = s;
+      cur.name = s.ownerName || cur.name;
+      cur.email = s.ownerEmail || cur.email;
+      cur.photo = s.ownerPhotoURL || cur.photo;
+    } else {
+      map.set(other, {
+        otherUid: other,
+        name: s.ownerName,
+        email: s.ownerEmail,
+        photo: s.ownerPhotoURL,
+        incoming: s,
+      });
+    }
+  }
+  return [...map.values()].sort(
+    (a, b) =>
+      (b.outgoing?.updatedAt ?? b.incoming?.updatedAt ?? 0) -
+      (a.outgoing?.updatedAt ?? a.incoming?.updatedAt ?? 0),
+  );
+}
+
 function FriendsTab({
-  friendships,
+  outShares,
+  inShares,
   myUid,
   error,
 }: {
-  friendships: Friendship[] | null;
+  outShares: Share[] | null;
+  inShares: Share[] | null;
   myUid: string;
   error?: string | null;
 }) {
+  const rows = useMemo(() => {
+    if (!outShares || !inShares) return null;
+    return combineRows(outShares, inShares);
+  }, [outShares, inShares]);
+
   return (
     <>
       <SendRequestCard />
       <section className="space-y-3">
         {error && <ErrorBanner message={error} />}
-        {!error && friendships === null && (
+        {!error && rows === null && (
           <p className="card p-4 text-center text-xs text-slate-500">불러오는 중…</p>
         )}
-        {friendships?.length === 0 && (
+        {rows?.length === 0 && (
           <p className="card p-4 text-center text-xs text-slate-500">
-            아직 친구가 없어요. 위에서 이메일로 신청해 보세요.
+            아직 친구가 없어요. 위에서 이메일로 팔로우 신청을 보내보세요.
           </p>
         )}
-        {friendships?.map((f) => (
-          <FriendCard key={f.id} friendship={f} myUid={myUid} />
+        {rows?.map((r) => (
+          <FriendCard key={r.otherUid} row={r} myUid={myUid} />
         ))}
       </section>
     </>
@@ -229,7 +297,7 @@ function SendRequestCard() {
     setErr(null);
     setBusy(true);
     try {
-      const req = await sendFriendRequest(email, scope);
+      const req = await sendFollowRequest(email, scope);
       const link = buildInviteLink(req.id);
       setLastSentLink(link);
       setLastSentEmail(req.toEmail);
@@ -245,8 +313,11 @@ function SendRequestCard() {
     <section className="card space-y-3 p-4">
       <h3 className="text-sm font-semibold text-slate-200">
         <UserPlus size={14} className="mb-0.5 mr-1 inline text-brand-400" />
-        이메일로 친구 신청
+        이메일로 팔로우 신청
       </h3>
+      <p className="text-[11px] text-slate-400">
+        상대가 수락하면 그 사람의 기록을 내가 볼 수 있어요. (인스타그램 팔로우와 같은 방식)
+      </p>
       <input
         type="email"
         value={email}
@@ -256,16 +327,16 @@ function SendRequestCard() {
         className="input"
       />
       <div className="flex flex-col gap-2">
-        <p className="text-xs text-slate-400">내가 공유할 범위</p>
+        <p className="text-xs text-slate-400">이 친구의 어떤 기록을 보고 싶나요?</p>
         <ScopeCheckboxes value={scope} onChange={setScope} />
       </div>
       <button
         onClick={submit}
-        disabled={busy || !email.trim()}
+        disabled={busy || !email.trim() || (!scope.calendar && !scope.health)}
         className="btn-primary w-full py-2.5 text-sm disabled:opacity-60"
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-        친구 신청 보내기
+        팔로우 신청 보내기
       </button>
       {err && (
         <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
@@ -352,12 +423,12 @@ function InviteLinkBlock({ email, link }: { email: string; link: string }) {
       prompt("링크를 복사하세요", link);
     }
   }
-  const mailHref = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent("헬스헬스 친구 요청")}&body=${encodeURIComponent(
-    `헬스헬스에서 친구로 연결하고 기록을 공유해요.\n\n이 링크를 열어 수락해 주세요:\n${link}\n`,
+  const mailHref = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent("헬스헬스 팔로우 신청")}&body=${encodeURIComponent(
+    `헬스헬스에서 팔로우 신청을 보냈어요.\n\n이 링크를 열어 수락해 주세요:\n${link}\n`,
   )}`;
   return (
     <div className="space-y-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-xs text-emerald-100/90">
-      <p className="font-medium">신청을 보냈어요.</p>
+      <p className="font-medium">팔로우 신청을 보냈어요.</p>
       <p className="break-all rounded-lg bg-slate-900/60 px-2 py-1.5 font-mono text-[11px] text-slate-300">
         {link}
       </p>
@@ -377,43 +448,70 @@ function InviteLinkBlock({ email, link }: { email: string; link: string }) {
   );
 }
 
-function FriendCard({
-  friendship,
-  myUid,
-}: {
-  friendship: Friendship;
-  myUid: string;
-}) {
-  const otherUid = otherUidOf(friendship, myUid);
-  const name = friendship.names[otherUid] ?? "이름 없음";
-  const email = friendship.emails[otherUid] ?? "";
-  const photo = friendship.photos?.[otherUid];
-  const myShare = friendship.shares[myUid] ?? { calendar: false, health: false };
-  const theirShare = friendship.shares[otherUid] ?? { calendar: false, health: false };
+function FriendCard({ row, myUid }: { row: FriendRow; myUid: string }) {
+  const { otherUid, name, email, photo, outgoing, incoming } = row;
+  const mutual = !!outgoing && !!incoming;
   const [editing, setEditing] = useState(false);
-  const [next, setNext] = useState<ShareScope>(myShare);
-  const [busy, setBusy] = useState(false);
+  const [next, setNext] = useState<ShareScope>(
+    outgoing?.scope ?? { calendar: true, health: true },
+  );
+  const [busy, setBusy] = useState<"save" | "stopOut" | "stopIn" | "follow" | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [followSent, setFollowSent] = useState(false);
 
   async function save() {
-    setBusy(true);
+    setErr(null);
+    setBusy("save");
     try {
-      await updateMyShare(friendship.id, next);
+      await updateOutgoingScope(otherUid, next);
       setEditing(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
-  async function remove() {
-    if (!confirm(`${name}님과의 친구 관계를 해제할까요?`)) return;
+  async function stopOutgoing() {
+    if (!outgoing) return;
+    if (!confirm(`${name}님에게 내 기록 공개를 중단할까요?`)) return;
+    setBusy("stopOut");
     try {
-      await removeFriendship(friendship.id);
+      await removeShare(outgoing.id);
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
     }
   }
+
+  async function stopIncoming() {
+    if (!incoming) return;
+    if (!confirm(`${name}님에 대한 팔로우를 끊을까요?`)) return;
+    setBusy("stopIn");
+    try {
+      await removeShare(incoming.id);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function followBack() {
+    setErr(null);
+    setBusy("follow");
+    try {
+      await sendFollowRequest(email, { calendar: true, health: true });
+      setFollowSent(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  void myUid;
 
   return (
     <div className="card overflow-hidden">
@@ -423,24 +521,45 @@ function FriendCard({
       >
         <Avatar name={name} photoURL={photo} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold text-slate-100">{name}</p>
+            {mutual ? (
+              <span className="shrink-0 rounded-full bg-brand-500/20 px-1.5 py-0.5 text-[10px] font-medium text-brand-200">
+                맞팔
+              </span>
+            ) : incoming ? (
+              <span className="shrink-0 rounded-full bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium text-sky-200">
+                팔로우 중
+              </span>
+            ) : (
+              <span className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">
+                나를 팔로우
+              </span>
+            )}
+          </div>
           <p className="truncate text-xs text-slate-500">{email}</p>
           <div className="mt-1 flex flex-wrap gap-1">
-            <ScopeBadge prefix="내가 공개" scope={myShare} tone="brand" />
-            <ScopeBadge prefix="상대가 공개" scope={theirShare} tone="slate" />
+            <ScopeBadge prefix="내가 공개" scope={outgoing?.scope} tone="brand" />
+            <ScopeBadge prefix="내가 보는 범위" scope={incoming?.scope} tone="slate" />
           </div>
         </div>
         <ChevronRight size={18} className="shrink-0 text-slate-500" />
       </Link>
-      <div className="border-t border-slate-800 px-3 py-2">
-        {editing ? (
+      <div className="space-y-2 border-t border-slate-800 px-3 py-2">
+        {err && (
+          <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-200">
+            {err}
+          </p>
+        )}
+        {editing && outgoing ? (
           <div className="space-y-2">
+            <p className="text-[11px] text-slate-400">내가 공개할 범위</p>
             <ScopeCheckboxes value={next} onChange={setNext} />
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   setEditing(false);
-                  setNext(myShare);
+                  setNext(outgoing.scope);
                 }}
                 className="btn-secondary flex-1 py-1.5 text-xs"
               >
@@ -448,28 +567,74 @@ function FriendCard({
               </button>
               <button
                 onClick={save}
-                disabled={busy}
+                disabled={busy !== null || (!next.calendar && !next.health)}
                 className="btn-primary flex-1 py-1.5 text-xs"
               >
-                {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                {busy === "save" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 저장
               </button>
             </div>
           </div>
         ) : (
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setNext(myShare);
-                setEditing(true);
-              }}
-              className="btn-secondary flex-1 py-1.5 text-xs"
-            >
-              내 공유 범위 변경
-            </button>
-            <button onClick={remove} className="btn-secondary flex-1 py-1.5 text-xs text-rose-300">
-              <Trash2 size={12} /> 친구 해제
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {outgoing && (
+              <>
+                <button
+                  onClick={() => {
+                    setNext(outgoing.scope);
+                    setEditing(true);
+                  }}
+                  className="btn-secondary flex-1 py-1.5 text-xs"
+                >
+                  내 공개 범위 변경
+                </button>
+                <button
+                  onClick={stopOutgoing}
+                  disabled={busy !== null}
+                  className="btn-secondary flex-1 py-1.5 text-xs text-rose-300 disabled:opacity-60"
+                >
+                  {busy === "stopOut" ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={12} />
+                  )}
+                  공개 중단
+                </button>
+              </>
+            )}
+            {incoming && (
+              <button
+                onClick={stopIncoming}
+                disabled={busy !== null}
+                className="btn-secondary flex-1 py-1.5 text-xs text-rose-300 disabled:opacity-60"
+              >
+                {busy === "stopIn" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <X size={12} />
+                )}
+                팔로우 끊기
+              </button>
+            )}
+            {!incoming && !followSent && (
+              <button
+                onClick={followBack}
+                disabled={busy !== null}
+                className="btn-primary flex-1 py-1.5 text-xs disabled:opacity-60"
+              >
+                {busy === "follow" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Eye size={12} />
+                )}
+                나도 팔로우 신청
+              </button>
+            )}
+            {!incoming && followSent && (
+              <span className="flex-1 rounded-lg bg-slate-900/60 px-2 py-1.5 text-center text-[11px] text-slate-400">
+                팔로우 신청을 보냈어요. 보낸 신청 탭에서 확인하세요.
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -483,13 +648,13 @@ function ScopeBadge({
   tone,
 }: {
   prefix: string;
-  scope: ShareScope;
+  scope?: ShareScope;
   tone: "brand" | "slate";
 }) {
   const parts: string[] = [];
-  if (scope.calendar) parts.push("달력");
-  if (scope.health) parts.push("건강");
-  const text = parts.length ? parts.join(", ") : "없음";
+  if (scope?.calendar) parts.push("달력");
+  if (scope?.health) parts.push("건강");
+  const text = scope ? (parts.length ? parts.join(", ") : "없음") : "—";
   return (
     <span
       className={cls(
@@ -528,7 +693,7 @@ function IncomingTab({
   requests,
   error,
 }: {
-  requests: FriendRequest[] | null;
+  requests: FollowRequest[] | null;
   error?: string | null;
 }) {
   return (
@@ -539,7 +704,7 @@ function IncomingTab({
       )}
       {requests?.length === 0 && (
         <p className="card p-4 text-center text-xs text-slate-500">
-          받은 친구 신청이 없어요.
+          받은 팔로우 신청이 없어요.
         </p>
       )}
       {requests?.map((r) => (
@@ -549,8 +714,11 @@ function IncomingTab({
   );
 }
 
-function IncomingCard({ req }: { req: FriendRequest }) {
-  const [myShare, setMyShare] = useState<ShareScope>(req.scopeFromRequester);
+function IncomingCard({ req }: { req: FollowRequest }) {
+  // 기본은 "요청대로 공개". 사용자가 토글하면 직접 선택 모드.
+  const [mode, setMode] = useState<"asis" | "custom">("asis");
+  const [custom, setCustom] = useState<ShareScope>(req.requestedScope);
+  const finalScope = mode === "asis" ? req.requestedScope : custom;
   const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -558,7 +726,7 @@ function IncomingCard({ req }: { req: FriendRequest }) {
     setErr(null);
     setBusy("accept");
     try {
-      await acceptRequest(req.id, myShare);
+      await acceptFollowRequest(req.id, finalScope);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -569,7 +737,7 @@ function IncomingCard({ req }: { req: FriendRequest }) {
     setErr(null);
     setBusy("reject");
     try {
-      await rejectRequest(req.id);
+      await rejectFollowRequest(req.id);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -587,15 +755,28 @@ function IncomingCard({ req }: { req: FriendRequest }) {
         </div>
       </div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-        <p className="text-[11px] text-slate-400">상대가 내게 공개할 범위</p>
+        <p className="text-[11px] text-slate-400">
+          <Eye size={11} className="mb-0.5 mr-1 inline" />
+          상대가 보고 싶은 범위
+        </p>
         <p className="mt-0.5 text-xs font-medium text-slate-100">
-          {scopeText(req.scopeFromRequester)}
+          {scopeText(req.requestedScope)}
         </p>
       </div>
-      <div>
-        <p className="mb-2 text-[11px] text-slate-400">내가 상대에게 공개할 범위</p>
-        <ScopeCheckboxes value={myShare} onChange={setMyShare} />
+      <div className="flex gap-1 rounded-lg bg-slate-900/40 p-1 text-[11px]">
+        <ModeBtn active={mode === "asis"} onClick={() => setMode("asis")}>
+          요청대로 공개
+        </ModeBtn>
+        <ModeBtn active={mode === "custom"} onClick={() => setMode("custom")}>
+          직접 선택
+        </ModeBtn>
       </div>
+      {mode === "custom" && (
+        <div>
+          <p className="mb-2 text-[11px] text-slate-400">내가 공개할 범위</p>
+          <ScopeCheckboxes value={custom} onChange={setCustom} />
+        </div>
+      )}
       {err && (
         <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
           {err}
@@ -616,7 +797,7 @@ function IncomingCard({ req }: { req: FriendRequest }) {
         </button>
         <button
           onClick={onAccept}
-          disabled={busy !== null || (!myShare.calendar && !myShare.health)}
+          disabled={busy !== null || (!finalScope.calendar && !finalScope.health)}
           className="btn-primary flex-1 py-2 text-xs disabled:opacity-60"
         >
           {busy === "accept" ? (
@@ -631,13 +812,38 @@ function IncomingCard({ req }: { req: FriendRequest }) {
   );
 }
 
+function ModeBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cls(
+        "flex-1 rounded-md px-2 py-1.5 transition-colors",
+        active
+          ? "bg-brand-500/20 text-brand-100"
+          : "text-slate-400 hover:text-slate-200",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
 // ---- 보낸 신청 탭 --------------------------------------------------------
 
 function OutgoingTab({
   requests,
   error,
 }: {
-  requests: FriendRequest[] | null;
+  requests: FollowRequest[] | null;
   error?: string | null;
 }) {
   return (
@@ -648,7 +854,7 @@ function OutgoingTab({
       )}
       {requests?.length === 0 && (
         <p className="card p-4 text-center text-xs text-slate-500">
-          보낸 친구 신청이 없어요.
+          보낸 팔로우 신청이 없어요.
         </p>
       )}
       {requests?.map((r) => (
@@ -658,15 +864,15 @@ function OutgoingTab({
   );
 }
 
-function OutgoingCard({ req }: { req: FriendRequest }) {
+function OutgoingCard({ req }: { req: FollowRequest }) {
   const link = useMemo(() => buildInviteLink(req.id), [req.id]);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   async function cancel() {
-    if (!confirm("이 친구 신청을 취소할까요?")) return;
+    if (!confirm("이 팔로우 신청을 취소할까요?")) return;
     setBusy(true);
     try {
-      await cancelRequest(req.id);
+      await cancelFollowRequest(req.id);
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e));
     } finally {
@@ -689,9 +895,9 @@ function OutgoingCard({ req }: { req: FriendRequest }) {
         <p className="truncate text-sm font-medium text-slate-100">{req.toEmail}</p>
       </div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-        <p className="text-[11px] text-slate-400">내가 공개할 범위</p>
+        <p className="text-[11px] text-slate-400">내가 보고 싶은 범위</p>
         <p className="mt-0.5 text-xs font-medium text-slate-100">
-          {scopeText(req.scopeFromRequester)}
+          {scopeText(req.requestedScope)}
         </p>
       </div>
       <div className="flex gap-2">
