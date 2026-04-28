@@ -146,7 +146,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, ownerUid }: SlotProps) 
     key: string,
   ) {
     try {
-      const result = await analyzeMealImage(key, photo);
+      const result = await analyzeMealImage(key, photo, slot);
       const cur = await db.meals.get(id);
       if (!cur) return;
       await db.meals.put({

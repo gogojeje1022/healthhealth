@@ -9,6 +9,7 @@
  */
 import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 import { blobToBase64, compressImage } from "./image";
+import type { MealSlot } from "../types";
 
 /** AI Studio 무료 한도 표가 보통 2.5 Flash Lite 기준이므로, 2.0 계열과 쿼터 풀이 다를 수 있음 */
 export const DEFAULT_MODEL = "gemini-2.5-flash-lite";
@@ -80,14 +81,55 @@ export interface MealAnalysis {
   };
 }
 
-const MEAL_PROMPT = `당신은 친절한 한국인 영양사입니다. 사용자가 보낸 식사 사진을 분석해 다음 JSON을 한국어로 반환하세요.
+/**
+ * 끼니(슬롯)별 맥락 — AI 가 그 시간대에 맞는 기준으로 평가하도록 가이드합니다.
+ *
+ * 각 슬롯의 핵심 컨셉:
+ * - 정찬(아침/점심/저녁): 영양 균형·적정 양이 우선.
+ * - 간식(오전/오후/야식): 양·당·지방이 과하면 감점, 가볍고 단백질·식이섬유 위주면 가점.
+ * - 야식: 수면에 부담 주는 고지방·고탄수·매운 자극은 강하게 감점.
+ */
+const MEAL_SLOT_CONTEXT: Record<MealSlot, { label: string; guide: string }> = {
+  breakfast: {
+    label: "아침 식사",
+    guide:
+      "기상 후 첫 끼니. 혈당이 급격히 튀지 않도록 복합 탄수 + 단백질 + 식이섬유의 균형을 가장 높이 평가하세요. 단당류·튀김류·과한 가공식품은 감점. 너무 가벼워서 오전 집중에 영향을 줄 정도면 적정량 부족으로 평가.",
+  },
+  morningSnack: {
+    label: "오전 간식",
+    guide:
+      "가벼운 보충용 간식(권장 100~200kcal 내외). 과일·견과류·요거트·소량의 단백질 등은 가점, 과자·디저트·고당 음료는 감점. 정찬급 양이면 '간식으로는 과함' 으로 감점하고 aiComment 에 그 이유를 적으세요.",
+  },
+  lunch: {
+    label: "점심 식사",
+    guide:
+      "하루의 메인 끼니. 단백질·채소·복합 탄수가 골고루 갖춰졌는지가 핵심. 너무 가벼우면 오후 폭식·집중력 저하 위험으로 감점, 과식·튀김 위주면 식곤증·소화 부담으로 감점.",
+  },
+  afternoonSnack: {
+    label: "오후 간식",
+    guide:
+      "에너지 보충용 가벼운 간식(권장 100~200kcal). 카페인 음료는 양에 따라 평가. 과한 당·지방, 정찬 분량은 감점. 단백질·과일·견과류·요거트 등은 가점.",
+  },
+  dinner: {
+    label: "저녁 식사",
+    guide:
+      "수면까지 시간이 가까울수록 가볍게. 단백질 + 채소 위주가 이상적. 기름진 음식·과한 탄수·자극적인 매운 음식은 수면 질을 해칠 수 있어 감점. 적정량 초과(과식)는 강하게 감점.",
+  },
+  eveningSnack: {
+    label: "야식",
+    guide:
+      "취침에 가까운 시점이라 영양 균형보다 부담을 줄이는 것이 우선. 고지방·튀김·라면류·고당 디저트·매운 자극은 강하게 감점(rating 1~2). 따뜻한 우유·소량의 과일·삶은 계란 같은 가벼운 단백질은 가점. aiComment 에 다음 끼니까지의 영향(수면/소화)을 짧게 언급하세요.",
+  },
+};
 
-규칙:
+const MEAL_PROMPT_BASE = `당신은 친절한 한국인 영양사입니다. 사용자가 보낸 식사 사진을 분석해 다음 JSON을 한국어로 반환하세요.
+
+공통 규칙:
 - 메뉴 이름은 한국식 명칭 우선, 보이는 모든 음식을 콤마로 나열.
-- 별점(rating)은 영양 균형/건강도/적정 양 기준 1~5 정수.
-- 간단한 한 줄평(aiComment, 30자 내외, 다정한 말투).
+- 별점(rating)은 1~5 정수. **반드시 아래 "이번 끼니 맥락" 의 기준에 맞춰** 영양 균형/건강도/적정 양을 평가하세요. 같은 음식이라도 끼니가 달라지면 점수가 달라질 수 있습니다(예: 라면 1그릇은 점심에 3점이라도 야식이면 1~2점).
+- 간단한 한 줄평(aiComment, 30자 내외, 다정한 말투). 끼니 맥락(아침인데 너무 가볍다, 야식치고 무겁다 등)을 자연스럽게 반영하세요.
 - 영양(nutrition)은 1인분 기준 추정치. 모르면 생략 가능.
-- healthTags 예: ["고단백","탄수과다","채소부족","가공식품","균형잡힘"] 등 1~4개.
+- healthTags 예: ["고단백","탄수과다","채소부족","가공식품","균형잡힘","간식과다","야식부담"] 등 1~4개.
 
 반드시 다음 JSON 스키마만 반환:
 {
@@ -103,16 +145,26 @@ const MEAL_PROMPT = `당신은 친절한 한국인 영양사입니다. 사용자
   }
 }`;
 
+function buildMealPrompt(slot?: MealSlot): string {
+  if (!slot) return MEAL_PROMPT_BASE;
+  const ctx = MEAL_SLOT_CONTEXT[slot];
+  return `${MEAL_PROMPT_BASE}
+
+이번 끼니 맥락 — "${ctx.label}":
+${ctx.guide}`;
+}
+
 async function analyzeMealImageOnce(
   apiKey: string,
   forApi: Blob,
+  slot?: MealSlot,
   modelName?: string,
 ): Promise<MealAnalysis> {
   const model = getModel(apiKey, modelName);
   const base64 = await blobToBase64(forApi);
   try {
     const res = await model.generateContent([
-      { text: MEAL_PROMPT },
+      { text: buildMealPrompt(slot) },
       {
         inlineData: {
           mimeType: forApi.type || "image/jpeg",
@@ -135,6 +187,7 @@ async function analyzeMealImageOnce(
 export async function analyzeMealImage(
   apiKey: string,
   image: Blob,
+  slot?: MealSlot,
   modelName?: string,
 ): Promise<MealAnalysis> {
   if (!apiKey.trim()) {
@@ -145,7 +198,7 @@ export async function analyzeMealImage(
     quality: 0.78,
     mimeType: "image/jpeg",
   });
-  return await analyzeMealImageOnce(apiKey.trim(), forApi, modelName);
+  return await analyzeMealImageOnce(apiKey.trim(), forApi, slot, modelName);
 }
 
 // ---------- 건강기록 분석 ----------
