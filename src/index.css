@@ -8,9 +8,10 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  /* 기본 테마 = "slate" (무채색 / 약간 블랙). theme 변수는 alpha-value 트릭을
-     쓰기 위해 R G B 만(공백 구분) 적습니다. tailwind 가 rgb(var(--brand-X)) 로 감쌉니다.
-     설정에서 다른 테마를 고르면 :root[data-theme="..."] 가 이 값들을 덮어씀. */
+  /* 기본 테마 = "blackish slate" (무채색 / 약간 블랙).
+     - brand-* : Tailwind colors.brand 가 가져다 씀 (강조색)
+     - surface-* : 페이지 / 앱 컨테이너 / 카드 / 테두리 색 (테마마다 미묘한 색감 차이)
+     모든 변수는 alpha-value 트릭을 위해 R G B 만(공백 구분) 적습니다. */
   --brand-50:  248 250 252;
   --brand-100: 241 245 249;
   --brand-200: 226 232 240;
@@ -21,9 +22,17 @@
   --brand-700: 51 65 85;
   --brand-800: 30 41 59;
   --brand-900: 15 23 42;
+
+  --surface-page:   2  6  16;   /* body 배경 (가장 어두움) */
+  --surface-app:   15 23 42;    /* max-w-screen-sm 컨테이너 (slate-950) */
+  --surface-card:  30 41 59;    /* 카드 배경 (slate-800) — alpha 0.55 사용 */
+  --surface-card-alpha: 0.55;
+  --surface-border: 51 65 85;   /* 카드/입력 테두리 (slate-700) */
+  --surface-input:  15 23 42;   /* 입력 배경 */
+  --surface-hover:  30 41 59;   /* btn-ghost hover */
 }
 
-/* "그린" 테마 — 기존 emerald 톤 */
+/* "그린" 테마 — 기존 emerald 톤 + 어두운 그린-슬레이트 배경 */
 :root[data-theme="green"] {
   --brand-50:  236 253 245;
   --brand-100: 209 250 229;
@@ -35,9 +44,17 @@
   --brand-700: 4 120 87;
   --brand-800: 6 95 70;
   --brand-900: 6 78 59;
+
+  --surface-page:   2 14 12;
+  --surface-app:    6 26 22;
+  --surface-card:  10 50 40;
+  --surface-card-alpha: 0.50;
+  --surface-border: 18 70 56;
+  --surface-input:  6 26 22;
+  --surface-hover:  12 56 44;
 }
 
-/* "블루" 테마 — sky 톤 */
+/* "블루" 테마 — sky 톤 + 미드나잇 블루 배경 */
 :root[data-theme="blue"] {
   --brand-50:  240 249 255;
   --brand-100: 224 242 254;
@@ -49,9 +66,17 @@
   --brand-700: 3 105 161;
   --brand-800: 7 89 133;
   --brand-900: 12 74 110;
+
+  --surface-page:   3 12 28;
+  --surface-app:    8 22 46;
+  --surface-card:  16 38 68;
+  --surface-card-alpha: 0.50;
+  --surface-border: 28 60 100;
+  --surface-input:  8 22 46;
+  --surface-hover:  20 46 80;
 }
 
-/* "핑크" 테마 — pink 톤 */
+/* "핑크" 테마 — pink 톤 + 어두운 plum/wine 배경 */
 :root[data-theme="pink"] {
   --brand-50:  253 242 248;
   --brand-100: 252 231 243;
@@ -63,6 +88,14 @@
   --brand-700: 190 24 93;
   --brand-800: 157 23 77;
   --brand-900: 131 24 67;
+
+  --surface-page:  20  6 18;
+  --surface-app:   38 14 32;
+  --surface-card:  60 22 50;
+  --surface-card-alpha: 0.50;
+  --surface-border: 100 38 80;
+  --surface-input:  38 14 32;
+  --surface-hover:  72 28 60;
 }
 
 html,
@@ -77,6 +110,11 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   font-feature-settings: "tnum" on;
+  /* 페이지 베이스 배경. 데스크탑에서 max-w-screen-sm 컨테이너 양옆에 보임.
+     테마마다 이 색이 달라 컨테이너 바깥에서도 테마 차이가 즉시 느껴집니다. */
+  background-color: rgb(var(--surface-page));
+  color: rgb(241 245 249); /* slate-100 — 텍스트 기본색 */
+  transition: background-color 200ms ease;
 }
 
 /* 모바일 입력 폼 줌 방지 (iOS) */
@@ -101,7 +139,7 @@ textarea {
   }
 }
 
-/* 공용 컴포넌트 */
+/* 공용 컴포넌트 — 색은 :root[data-theme] 변수에서 가져옴. */
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-medium
@@ -111,17 +149,31 @@ textarea {
     @apply btn bg-brand-500 text-white hover:bg-brand-400 disabled:bg-brand-700;
   }
   .btn-secondary {
-    @apply btn bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700;
+    @apply btn text-slate-100;
+    background-color: rgb(var(--surface-card));
+    border: 1px solid rgb(var(--surface-border));
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: rgb(var(--surface-hover));
   }
   .btn-ghost {
-    @apply btn text-slate-300 hover:bg-slate-800/50;
+    @apply btn text-slate-300;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: rgb(var(--surface-hover) / 0.5);
   }
   .card {
-    @apply rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur;
+    @apply rounded-2xl backdrop-blur;
+    background-color: rgb(var(--surface-card) / var(--surface-card-alpha));
+    border: 1px solid rgb(var(--surface-border));
   }
   .input {
-    @apply w-full rounded-xl bg-slate-900 border border-slate-800 px-4 py-3
-           text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-500;
+    @apply w-full rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none;
+    background-color: rgb(var(--surface-input));
+    border: 1px solid rgb(var(--surface-border));
+  }
+  .input:focus {
+    border-color: rgb(var(--brand-500));
   }
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
@@ -143,4 +195,16 @@ textarea {
     rgb(var(--swatch-400)) 0%,
     rgb(var(--swatch-600)) 100%
   );
+}
+
+/* 앱 셸 — max-w-screen-sm 컨테이너 배경 (테마별 색조). */
+.app-shell {
+  background-color: rgb(var(--surface-app));
+  transition: background-color 200ms ease;
+}
+
+/* 하단 네비 — 앱 색을 약간 어둡게(85%) + 블러. */
+.bottom-nav {
+  background-color: rgb(var(--surface-app) / 0.85);
+  border-top: 1px solid rgb(var(--surface-border) / 0.8);
 }

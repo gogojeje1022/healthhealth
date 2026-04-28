@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   CheckCircle2,
@@ -345,12 +345,16 @@ function ThemeSection({ currentTheme }: { currentTheme: ThemeId }) {
     afterUserDataMutation();
   }
 
-  // 각 테마의 대표 색 (CSS var 팔레트의 400/600 두 단계로 그라데이션 — 보기 좋음).
-  const SWATCHES: Record<ThemeId, { v400: string; v600: string }> = {
-    default: { v400: "148 163 184", v600: "71 85 105" },
-    green: { v400: "52 211 153", v600: "5 150 105" },
-    blue: { v400: "56 189 248", v600: "2 132 199" },
-    pink: { v400: "244 114 182", v600: "219 39 119" },
+  // 각 테마의 실제 배경/카드/강조색 — 스와치에서 미니 미리보기로 보여줌.
+  // (index.css 의 :root[data-theme] 정의와 같은 값 — 시각화 일관성 유지)
+  const SWATCHES: Record<
+    ThemeId,
+    { app: string; card: string; border: string; brand: string }
+  > = {
+    default: { app: "15 23 42", card: "30 41 59", border: "51 65 85", brand: "100 116 139" },
+    green: { app: "6 26 22", card: "10 50 40", border: "18 70 56", brand: "16 185 129" },
+    blue: { app: "8 22 46", card: "16 38 68", border: "28 60 100", brand: "14 165 233" },
+    pink: { app: "38 14 32", card: "60 22 50", border: "100 38 80", brand: "236 72 153" },
   };
 
   return (
@@ -359,7 +363,7 @@ function ThemeSection({ currentTheme }: { currentTheme: ThemeId }) {
         <Palette size={16} className="text-brand-400" /> 테마
       </h2>
       <p className="mb-3 text-xs text-slate-400">
-        강조 색상을 바꿀 수 있어요. 선택은 자동 저장되고 다른 기기에도 동기화됩니다.
+        배경과 강조색을 함께 바꿔요. 선택은 자동 저장되고 같은 계정의 다른 기기에도 동기화됩니다.
       </p>
       <div className="grid grid-cols-4 gap-2">
         {THEME_IDS.map((t) => {
@@ -375,19 +379,27 @@ function ThemeSection({ currentTheme }: { currentTheme: ThemeId }) {
                 "flex flex-col items-center gap-2 rounded-xl border px-2 py-3 text-xs transition",
                 sel
                   ? "border-brand-500 bg-brand-500/10 text-slate-100"
-                  : "border-slate-800 bg-slate-900/50 text-slate-300 hover:border-slate-700",
+                  : "border-slate-800 bg-slate-900/40 text-slate-300 hover:border-slate-700",
               )}
             >
+              {/* 미니 앱 미리보기 — 진짜 그 테마의 배경 위에 카드와 강조색 점이 얹힘 */}
               <span
-                className="theme-swatch h-8 w-8 rounded-full ring-2 ring-slate-950"
-                style={
-                  {
-                    "--swatch-400": sw.v400,
-                    "--swatch-600": sw.v600,
-                  } as CSSProperties
-                }
+                className="relative flex h-12 w-full items-center justify-center overflow-hidden rounded-lg ring-1 ring-black/40"
+                style={{ backgroundColor: `rgb(${sw.app})` }}
                 aria-hidden
-              />
+              >
+                <span
+                  className="absolute inset-1.5 rounded-md"
+                  style={{
+                    backgroundColor: `rgb(${sw.card} / 0.7)`,
+                    border: `1px solid rgb(${sw.border})`,
+                  }}
+                />
+                <span
+                  className="relative h-4 w-4 rounded-full shadow"
+                  style={{ backgroundColor: `rgb(${sw.brand})` }}
+                />
+              </span>
               <span className="font-medium">{THEME_LABELS[t]}</span>
               {sel && (
                 <span className="-mt-1 inline-flex items-center gap-1 text-[10px] text-brand-300">

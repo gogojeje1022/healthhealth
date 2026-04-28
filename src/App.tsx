@@ -53,7 +53,7 @@ export default function App() {
   // 데이터 로딩 중
   if (gate === undefined) {
     return (
-      <div className="flex h-full items-center justify-center text-slate-500">
+      <div className="app-shell flex h-full items-center justify-center text-slate-500">
         로딩 중…
       </div>
     );
@@ -77,7 +77,7 @@ export default function App() {
 
   return (
     <div
-      className="mx-auto flex h-full w-full max-w-screen-sm flex-col bg-slate-950"
+      className="app-shell mx-auto flex h-full w-full max-w-screen-sm flex-col"
       style={{
         paddingTop: "var(--safe-top)",
         paddingBottom: "var(--safe-bottom)",

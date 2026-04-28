@@ -13,8 +13,7 @@ export default function BottomNav() {
   const { pathname } = useLocation();
   return (
     <nav
-      className="fixed bottom-0 left-1/2 z-40 w-full max-w-screen-sm -translate-x-1/2
-                 border-t border-slate-800/80 bg-slate-950/85 backdrop-blur"
+      className="bottom-nav fixed bottom-0 left-1/2 z-40 w-full max-w-screen-sm -translate-x-1/2 backdrop-blur"
       style={{ paddingBottom: "var(--safe-bottom)" }}
     >
       <ul className="flex items-stretch justify-around">
