@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, getSettings, patchSettings } from "./lib/db";
+import { applyTheme, normalizeTheme } from "./lib/theme";
 import HomePage from "./pages/HomePage";
 import DayPage from "./pages/DayPage";
 import HealthPage from "./pages/HealthPage";
@@ -42,6 +43,12 @@ export default function App() {
       }
     });
   }, [gate?.userCount, gate?.settings.activeUserId]);
+
+  // 테마 동기화 — 클라우드에서 다른 기기의 선택이 동기화되어 들어와도 즉시 반영.
+  useEffect(() => {
+    if (!gate) return;
+    applyTheme(normalizeTheme(gate.settings.theme));
+  }, [gate?.settings.theme]);
 
   // 데이터 로딩 중
   if (gate === undefined) {

@@ -40,6 +40,8 @@ export type HealthStored = Omit<HealthRecord, "photo" | "thumbnail"> & {
 type PublicSettingsDoc = {
   activeUserId?: string;
   onboarded?: boolean;
+  /** UI 테마 — 다른 기기와 함께 동기화 */
+  theme?: AppSettings["theme"];
   updatedAt: number;
 };
 
@@ -344,6 +346,7 @@ async function pushPublicSettings(uid: string, s: AppSettings): Promise<void> {
   const docData: PublicSettingsDoc = {
     activeUserId: s.activeUserId,
     onboarded: s.onboarded,
+    theme: s.theme,
     updatedAt,
   };
   // model 은 더 이상 사용하지 않음 — 기존 사용자의 클라우드 잔여 필드를 정리.
@@ -420,6 +423,7 @@ export async function syncCloudWithLocal(): Promise<void> {
         ...localSettings,
         activeUserId: remotePublic.activeUserId,
         onboarded: remotePublic.onboarded,
+        theme: remotePublic.theme,
         appSettingsUpdatedAt: remotePublic.updatedAt,
         id: SETTINGS_KEY,
       };

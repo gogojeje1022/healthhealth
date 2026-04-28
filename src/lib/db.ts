@@ -62,7 +62,7 @@ export async function patchSettings(patch: Partial<AppSettings>): Promise<void> 
   const next: AppSettings = { ...cur, ...patch, id: SETTINGS_KEY };
   if ("appSettingsUpdatedAt" in patch && patch.appSettingsUpdatedAt !== undefined) {
     next.appSettingsUpdatedAt = patch.appSettingsUpdatedAt;
-  } else if ("activeUserId" in patch || "onboarded" in patch) {
+  } else if ("activeUserId" in patch || "onboarded" in patch || "theme" in patch) {
     next.appSettingsUpdatedAt = Date.now();
   }
   if ("geminiApiKey" in patch) {

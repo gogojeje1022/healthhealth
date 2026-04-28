@@ -116,6 +116,18 @@ export interface HealthRecord {
   updatedAt: number;
 }
 
+/** UI 강조색 테마 — :root[data-theme="..."] 와 매핑됨. */
+export type ThemeId = "default" | "green" | "blue" | "pink";
+
+export const THEME_IDS: ThemeId[] = ["default", "green", "blue", "pink"];
+
+export const THEME_LABELS: Record<ThemeId, string> = {
+  default: "블랙",
+  green: "그린",
+  blue: "블루",
+  pink: "핑크",
+};
+
 export interface AppSettings {
   id: "settings";
   geminiApiKey?: string;
@@ -123,7 +135,9 @@ export interface AppSettings {
   activeUserId?: string;
   /** 온보딩 완료 여부 */
   onboarded?: boolean;
-  /** 공개 설정(activeUserId·onboarded) 충돌 해결용 타임스탬프 */
+  /** UI 테마 (브랜드 강조색). 미지정이면 default(블랙). */
+  theme?: ThemeId;
+  /** 공개 설정(activeUserId·onboarded·theme) 충돌 해결용 타임스탬프 */
   appSettingsUpdatedAt?: number;
   /** Gemini 키 충돌 해결용 — 계정별 Firestore config/private 동기화 */
   geminiSettingsUpdatedAt?: number;

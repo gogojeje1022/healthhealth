@@ -7,6 +7,62 @@
   /* Galaxy S24 safe area */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* 기본 테마 = "slate" (무채색 / 약간 블랙). theme 변수는 alpha-value 트릭을
+     쓰기 위해 R G B 만(공백 구분) 적습니다. tailwind 가 rgb(var(--brand-X)) 로 감쌉니다.
+     설정에서 다른 테마를 고르면 :root[data-theme="..."] 가 이 값들을 덮어씀. */
+  --brand-50:  248 250 252;
+  --brand-100: 241 245 249;
+  --brand-200: 226 232 240;
+  --brand-300: 203 213 225;
+  --brand-400: 148 163 184;
+  --brand-500: 100 116 139;
+  --brand-600: 71 85 105;
+  --brand-700: 51 65 85;
+  --brand-800: 30 41 59;
+  --brand-900: 15 23 42;
+}
+
+/* "그린" 테마 — 기존 emerald 톤 */
+:root[data-theme="green"] {
+  --brand-50:  236 253 245;
+  --brand-100: 209 250 229;
+  --brand-200: 167 243 208;
+  --brand-300: 110 231 183;
+  --brand-400: 52 211 153;
+  --brand-500: 16 185 129;
+  --brand-600: 5 150 105;
+  --brand-700: 4 120 87;
+  --brand-800: 6 95 70;
+  --brand-900: 6 78 59;
+}
+
+/* "블루" 테마 — sky 톤 */
+:root[data-theme="blue"] {
+  --brand-50:  240 249 255;
+  --brand-100: 224 242 254;
+  --brand-200: 186 230 253;
+  --brand-300: 125 211 252;
+  --brand-400: 56 189 248;
+  --brand-500: 14 165 233;
+  --brand-600: 2 132 199;
+  --brand-700: 3 105 161;
+  --brand-800: 7 89 133;
+  --brand-900: 12 74 110;
+}
+
+/* "핑크" 테마 — pink 톤 */
+:root[data-theme="pink"] {
+  --brand-50:  253 242 248;
+  --brand-100: 252 231 243;
+  --brand-200: 251 207 232;
+  --brand-300: 249 168 212;
+  --brand-400: 244 114 182;
+  --brand-500: 236 72 153;
+  --brand-600: 219 39 119;
+  --brand-700: 190 24 93;
+  --brand-800: 157 23 77;
+  --brand-900: 131 24 67;
 }
 
 html,
@@ -77,5 +133,14 @@ textarea {
   background: conic-gradient(
     var(--ring-color, #10b981) calc(var(--ring-pct, 0) * 1%),
     rgba(255, 255, 255, 0.08) 0
+  );
+}
+
+/* 테마 미리보기 스와치 — 설정 페이지 테마 선택 UI 에서 사용 */
+.theme-swatch {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--swatch-400)) 0%,
+    rgb(var(--swatch-600)) 100%
   );
 }

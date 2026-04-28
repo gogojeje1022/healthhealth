@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   CheckCircle2,
@@ -9,6 +9,7 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Palette,
   Trash2,
   TriangleAlert,
   UserRound,
@@ -22,7 +23,9 @@ import {
 } from "../lib/db";
 import { pingGemini } from "../lib/ai";
 import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
-import type { User } from "../types";
+import { persistTheme } from "../lib/theme";
+import { THEME_IDS, THEME_LABELS, type ThemeId, type User } from "../types";
+import { cls } from "../lib/utils";
 
 export default function SettingsPage() {
   const {
@@ -272,6 +275,8 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <ThemeSection currentTheme={(settings?.theme ?? "default") as ThemeId} />
+
       <section className="card p-4">
         <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
           <UserRound size={16} className="text-brand-400" /> 프로필
@@ -327,5 +332,72 @@ export default function SettingsPage() {
 
       <section className="px-1 pb-4 text-center text-[11px] text-slate-600">헬스헬스 v0.1.0</section>
     </div>
+  );
+}
+
+/** 테마(강조색) 선택 — :root[data-theme] 와 settings.theme 양쪽을 동시에 갱신. */
+function ThemeSection({ currentTheme }: { currentTheme: ThemeId }) {
+  async function pick(t: ThemeId) {
+    if (t === currentTheme) return;
+    // DOM / localStorage 즉시 반영 후 Dexie + 클라우드에 영속 저장.
+    persistTheme(t);
+    await patchSettings({ theme: t });
+    afterUserDataMutation();
+  }
+
+  // 각 테마의 대표 색 (CSS var 팔레트의 400/600 두 단계로 그라데이션 — 보기 좋음).
+  const SWATCHES: Record<ThemeId, { v400: string; v600: string }> = {
+    default: { v400: "148 163 184", v600: "71 85 105" },
+    green: { v400: "52 211 153", v600: "5 150 105" },
+    blue: { v400: "56 189 248", v600: "2 132 199" },
+    pink: { v400: "244 114 182", v600: "219 39 119" },
+  };
+
+  return (
+    <section className="card p-4">
+      <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
+        <Palette size={16} className="text-brand-400" /> 테마
+      </h2>
+      <p className="mb-3 text-xs text-slate-400">
+        강조 색상을 바꿀 수 있어요. 선택은 자동 저장되고 다른 기기에도 동기화됩니다.
+      </p>
+      <div className="grid grid-cols-4 gap-2">
+        {THEME_IDS.map((t) => {
+          const sel = t === currentTheme;
+          const sw = SWATCHES[t];
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => void pick(t)}
+              aria-pressed={sel}
+              className={cls(
+                "flex flex-col items-center gap-2 rounded-xl border px-2 py-3 text-xs transition",
+                sel
+                  ? "border-brand-500 bg-brand-500/10 text-slate-100"
+                  : "border-slate-800 bg-slate-900/50 text-slate-300 hover:border-slate-700",
+              )}
+            >
+              <span
+                className="theme-swatch h-8 w-8 rounded-full ring-2 ring-slate-950"
+                style={
+                  {
+                    "--swatch-400": sw.v400,
+                    "--swatch-600": sw.v600,
+                  } as CSSProperties
+                }
+                aria-hidden
+              />
+              <span className="font-medium">{THEME_LABELS[t]}</span>
+              {sel && (
+                <span className="-mt-1 inline-flex items-center gap-1 text-[10px] text-brand-300">
+                  <CheckCircle2 size={10} /> 사용 중
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
