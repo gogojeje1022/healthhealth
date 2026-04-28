@@ -17,6 +17,11 @@ const BATCH = 400;
 /** Firestore 문서 상한 1MiB — Base64·메타 여유 */
 const DOC_SAFE_BYTES = 900_000;
 
+// 헬스헬스는 1인 앱이라 Dexie `users` 테이블에는 본인 프로필 1행만 들어갑니다.
+// Firestore 컬렉션명 `users/{uid}/members` 는 초기 멀티 프로필 시절의 잔재이지만,
+// 기존 사용자 데이터와의 호환을 위해 이름은 그대로 둡니다.
+// 코드 내부의 *Members 함수·변수도 같은 의미입니다.
+
 export type MealStored = Omit<Meal, "photo" | "thumbnail"> & {
   photoBase64?: string;
   photoMimeType?: string;
@@ -58,20 +63,17 @@ function docJsonSize(data: object): number {
 
 function prunePendingDeletes(
   pd: AppSettings["cloudPendingDeletes"],
-  members: User[],
   meals: Meal[],
   health: HealthRecord[],
 ): AppSettings["cloudPendingDeletes"] {
   if (!pd) return undefined;
-  const m = new Set(members.map((x) => x.id));
   const ml = new Set(meals.map((x) => x.id));
   const h = new Set(health.map((x) => x.id));
   const next = {
     meals: (pd.meals ?? []).filter((id) => ml.has(id)),
     health: (pd.health ?? []).filter((id) => h.has(id)),
-    members: (pd.members ?? []).filter((id) => m.has(id)),
   };
-  if (next.meals.length + next.health.length + next.members.length === 0) return undefined;
+  if (next.meals.length + next.health.length === 0) return undefined;
   return next;
 }
 
@@ -386,14 +388,12 @@ export async function syncCloudWithLocal(): Promise<void> {
     let localSettings = await getSettings();
 
     const pd = localSettings.cloudPendingDeletes;
-    const skipMembers = new Set(pd?.members ?? []);
     const skipMeals = new Set(pd?.meals ?? []);
     const skipHealth = new Set(pd?.health ?? []);
-    const remoteMembersFiltered = remoteMembers.filter((u) => !skipMembers.has(u.id));
     const remoteMealsFiltered = remoteMeals.filter((m) => !skipMeals.has(m.id));
     const remoteHealthFiltered = remoteHealth.filter((h) => !skipHealth.has(h.id));
 
-    const mergedMembers = mergeUsers(localMembers, remoteMembersFiltered);
+    const mergedMembers = mergeUsers(localMembers, remoteMembers);
     const mergedMeals = await mergeMeals(localMeals, remoteMealsFiltered);
     const mergedHealth = await mergeHealth(localHealth, remoteHealthFiltered);
 
@@ -437,7 +437,6 @@ export async function syncCloudWithLocal(): Promise<void> {
         lastCloudSyncAt: Date.now(),
         cloudPendingDeletes: prunePendingDeletes(
           localSettings.cloudPendingDeletes,
-          mergedMembers,
           mergedMeals,
           mergedHealth,
         ),

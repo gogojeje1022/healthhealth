@@ -137,7 +137,6 @@ export interface AppSettings {
   cloudPendingDeletes?: {
     meals?: string[];
     health?: string[];
-    members?: string[];
   };
 }
 

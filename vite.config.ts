@@ -10,7 +10,7 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 // 사용자 정의 도메인이나 user.github.io 저장소면 "/"로 변경
 const base = process.env.VITE_BASE_PATH ?? "/healthhealth/";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base,
   plugins: [
     react(),
@@ -53,11 +53,33 @@ export default defineConfig({
   build: {
     target: "es2020",
     sourcemap: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
+      // auth-test 는 디버깅용 — dev 서버에서만 직접 접근(`npm run test:auth`).
+      // 프로덕션 번들에 포함시키면 공개 사이트에 노출되므로 빌드 input 에서는 제외.
       input: {
         main: resolve(__dirname, "index.html"),
-        authTest: resolve(__dirname, "auth-test.html"),
+        ...(command === "build"
+          ? {}
+          : { authTest: resolve(__dirname, "auth-test.html") }),
+      } as Record<string, string>,
+      output: {
+        manualChunks: {
+          // 가장 큰 의존성들을 라우트와 분리해 첫 진입 시 캐싱 효율을 높인다.
+          "vendor-firebase": [
+            "firebase/app",
+            "firebase/auth",
+            "firebase/firestore",
+          ],
+          "vendor-gemini": ["@google/generative-ai"],
+          "vendor-react": [
+            "react",
+            "react-dom",
+            "react-router-dom",
+          ],
+          "vendor-utils": ["dexie", "date-fns", "lucide-react"],
+        },
       },
     },
   },
-});
+}));

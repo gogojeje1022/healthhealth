@@ -77,26 +77,24 @@ export function uid(): string {
   );
 }
 
-/** 식단·건강·프로필 삭제 시 클라우드 동기화가 원격 문서를 다시 끌어오지 않도록 표시 */
+/** 식단·건강 삭제 시 클라우드 동기화가 원격 문서를 다시 끌어오지 않도록 표시 */
 export async function registerCloudDeletes(ids: {
   meals?: string[];
   health?: string[];
-  members?: string[];
 }): Promise<void> {
   const cur = await getSettings();
   const pd = cur.cloudPendingDeletes ?? {};
   const meals = new Set([...(pd.meals ?? []), ...(ids.meals ?? [])]);
   const health = new Set([...(pd.health ?? []), ...(ids.health ?? [])]);
-  const members = new Set([...(pd.members ?? []), ...(ids.members ?? [])]);
   const cloudPendingDeletes =
-    meals.size + health.size + members.size === 0
+    meals.size + health.size === 0
       ? undefined
-      : { meals: [...meals], health: [...health], members: [...members] };
+      : { meals: [...meals], health: [...health] };
   await patchSettings({ cloudPendingDeletes });
 }
 
 export async function registerCloudDelete(
-  kind: "meals" | "health" | "members",
+  kind: "meals" | "health",
   id: string,
 ): Promise<void> {
   await registerCloudDeletes({ [kind]: [id] });
