@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "tsc -b --noEmit",
     "test:gemini": "node scripts/test-gemini.mjs",
-    "test:auth": "vite --host --open /healthhealth/auth-test.html",
+    "test:auth": "vite --host --open /auth-test.html",
     "deploy:firestore-rules": "npx --yes firebase-tools deploy --only firestore:rules"
   },
   "dependencies": {

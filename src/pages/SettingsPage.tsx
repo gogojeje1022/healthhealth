@@ -97,8 +97,24 @@ export default function SettingsPage() {
   }
 
   async function wipeAll() {
-    if (!confirm("⚠ 정말 모든 데이터를 삭제할까요? 되돌릴 수 없어요.")) return;
+    if (
+      !confirm(
+        "⚠ 이 기기의 모든 데이터를 삭제합니다.\n\n" +
+          "클라우드 동기화를 멈추기 위해 자동으로 로그아웃됩니다. " +
+          "같은 Google 계정으로 다시 로그인하면 클라우드에 남은 기록이 복원될 수 있어요. " +
+          "클라우드까지 영구 삭제하려면 친구 페이지에서 친구를 모두 해제하고, " +
+          "다른 기기에서도 동일하게 진행해 주세요.",
+      )
+    )
+      return;
     if (!confirm("정말로 확실한가요?")) return;
+    // 먼저 로그아웃 — 이후 자동 동기화가 currentUser 없음으로 즉시 종료되어,
+    // 로컬을 비우는 사이에 클라우드 데이터가 다시 들어오는 race 를 막는다.
+    try {
+      await signOutApp();
+    } catch (e) {
+      console.warn("[wipeAll] signOut", e);
+    }
     await db.transaction(
       "rw",
       db.users,
@@ -298,7 +314,8 @@ export default function SettingsPage() {
       <section className="card p-4">
         <h2 className="mb-2 text-base font-semibold text-rose-300">위험 영역</h2>
         <p className="mb-3 text-xs text-slate-400">
-          모든 식단/건강 기록과 사용자 정보를 삭제합니다.
+          이 기기의 식단·건강 기록과 프로필을 모두 삭제합니다. 동시에 자동 로그아웃되어 클라우드 동기화도 중단돼요.
+          같은 Google 계정으로 다시 로그인하면 클라우드에 남아 있던 기록이 복원될 수 있습니다.
         </p>
         <button
           onClick={wipeAll}

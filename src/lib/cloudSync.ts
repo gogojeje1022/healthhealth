@@ -34,7 +34,6 @@ export type HealthStored = Omit<HealthRecord, "photo" | "thumbnail"> & {
 
 type PublicSettingsDoc = {
   activeUserId?: string;
-  model?: string;
   onboarded?: boolean;
   updatedAt: number;
 };
@@ -324,11 +323,14 @@ async function pushPublicSettings(uid: string, s: AppSettings): Promise<void> {
   const updatedAt = s.appSettingsUpdatedAt ?? Date.now();
   const docData: PublicSettingsDoc = {
     activeUserId: s.activeUserId,
-    model: s.model,
     onboarded: s.onboarded,
     updatedAt,
   };
-  await setDoc(doc(fs, "users", uid, "config", "public"), cleanForFirestore(docData));
+  // model 은 더 이상 사용하지 않음 — 기존 사용자의 클라우드 잔여 필드를 정리.
+  await setDoc(
+    doc(fs, "users", uid, "config", "public"),
+    { ...cleanForFirestore(docData), model: deleteField() },
+  );
 }
 
 async function pushPrivateSettings(uid: string, s: AppSettings): Promise<void> {
@@ -399,7 +401,6 @@ export async function syncCloudWithLocal(): Promise<void> {
       localSettings = {
         ...localSettings,
         activeUserId: remotePublic.activeUserId,
-        model: remotePublic.model,
         onboarded: remotePublic.onboarded,
         appSettingsUpdatedAt: remotePublic.updatedAt,
         id: SETTINGS_KEY,

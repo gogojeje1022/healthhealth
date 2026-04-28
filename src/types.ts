@@ -121,13 +121,11 @@ export interface HealthRecord {
 export interface AppSettings {
   id: "settings";
   geminiApiKey?: string;
-  /** 활성 사용자 ID (마지막 선택) */
+  /** 활성 프로필 id (1인 앱이지만 Dexie users 테이블의 어떤 행을 쓰는지 식별) */
   activeUserId?: string;
-  /** AI 모델 */
-  model?: string;
   /** 온보딩 완료 여부 */
   onboarded?: boolean;
-  /** 공개 설정(activeUserId·model·onboarded) 충돌 해결용 타임스탬프 */
+  /** 공개 설정(activeUserId·onboarded) 충돌 해결용 타임스탬프 */
   appSettingsUpdatedAt?: number;
   /** Gemini 키 충돌 해결용 — 계정별 Firestore config/private 동기화 */
   geminiSettingsUpdatedAt?: number;

@@ -24,7 +24,7 @@ export default function FriendProfilePage() {
   const navigate = useNavigate();
   const { user, firebaseReady } = useAuth();
   const [friendship, setFriendship] = useState<Friendship | null | "missing">(null);
-  const [tab, setTab] = useState<Tab>("calendar");
+  const [tab, setTab] = useState<Tab | null>(null);
 
   useEffect(() => {
     if (!user || !friendUid) return;
@@ -81,7 +81,13 @@ export default function FriendProfilePage() {
 
   const canCalendar = theirShare.calendar;
   const canHealth = theirShare.health;
-  const defaultTab: Tab = canCalendar ? "calendar" : canHealth ? "health" : "calendar";
+  // tab 이 아직 선택되지 않았거나, 현재 선택된 탭이 비공개 범위면 공개된 쪽으로 폴백.
+  const activeTab: Tab =
+    tab && ((tab === "calendar" && canCalendar) || (tab === "health" && canHealth))
+      ? tab
+      : canCalendar
+        ? "calendar"
+        : "health";
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-4">
@@ -111,26 +117,26 @@ export default function FriendProfilePage() {
           <div className="flex gap-1 rounded-xl bg-slate-900/60 p-1">
             {canCalendar && (
               <TabBtn
-                active={(tab ?? defaultTab) === "calendar"}
+                active={activeTab === "calendar"}
                 onClick={() => setTab("calendar")}
               >
                 <CalendarDays size={14} /> 달력
               </TabBtn>
             )}
             {canHealth && (
-              <TabBtn active={tab === "health"} onClick={() => setTab("health")}>
+              <TabBtn
+                active={activeTab === "health"}
+                onClick={() => setTab("health")}
+              >
                 <HeartPulse size={14} /> 건강
               </TabBtn>
             )}
           </div>
 
-          {tab === "calendar" && canCalendar && (
+          {activeTab === "calendar" && canCalendar && (
             <FriendCalendarTab friendUid={friendUid} />
           )}
-          {tab === "health" && canHealth && (
-            <FriendHealthTab friendUid={friendUid} />
-          )}
-          {tab === "calendar" && !canCalendar && canHealth && (
+          {activeTab === "health" && canHealth && (
             <FriendHealthTab friendUid={friendUid} />
           )}
         </>

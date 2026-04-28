@@ -58,16 +58,19 @@ service cloud.firestore {
         && (resource.data.fromUid == me() || resource.data.toEmail == myEmail());
     }
 
-    // 친구 관계 — 당사자만 읽고 쓰며, users 배열 및 상대 share 는 불변
+    // 친구 관계 — 당사자만 읽고 쓰며, users 배열·상대 shares 는 불변
     match /friendships/{fid} {
       allow read:   if signedIn() && me() in resource.data.users;
       allow create: if signedIn()
         && me() in request.resource.data.users
         && request.resource.data.users.size() == 2
         && fid == friendshipId(request.resource.data.users[0], request.resource.data.users[1]);
+      // update: users 배열은 그대로여야 하고, shares 맵에서 변경된 키는 본인 uid 뿐이어야 함.
+      // (상대가 공개한 범위를 임의로 덮어쓰지 못하도록 차단)
       allow update: if signedIn()
         && me() in resource.data.users
-        && request.resource.data.users == resource.data.users;
+        && request.resource.data.users == resource.data.users
+        && request.resource.data.shares.diff(resource.data.shares).affectedKeys().hasOnly([me()]);
       allow delete: if signedIn() && me() in resource.data.users;
     }
   }
