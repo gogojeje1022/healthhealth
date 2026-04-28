@@ -44,6 +44,11 @@ function kickSync(): void {
  * 로그인된 경우에만, 로컬 데이터 변경 후 Firestore 와 맞춥니다.
  * - immediate: 대기 없이 곧바로(탭 복귀·로그인 직후 등)
  * - 기본: DEBOUNCE_MS 후 한 번만(연속 저장 합침)
+ *
+ * 주의: 진행 중인 sync 의 로컬 트랜잭션 동안 들어온 요청을 버리면
+ * AI 분석 완료처럼 sync 도중에 발생한 변경이 영영 클라우드로 올라가지
+ * 않을 수 있다(친구 화면에서 `analyzing` 이 계속 보이는 원인). 따라서
+ * sync 가 진행 중이어도 후속 실행이 보장되도록 항상 kickSync 까지 호출한다.
  */
 export function requestAutoCloudSync(options?: { immediate?: boolean }): void {
   if (typeof window === "undefined") return;
@@ -52,7 +57,12 @@ export function requestAutoCloudSync(options?: { immediate?: boolean }): void {
   } catch {
     return;
   }
-  if (isCloudSyncMutation()) return;
+
+  // 진행 중인 sync 가 있다면 즉시 후속 실행을 예약해 둔다(immediate 여부 무관).
+  // kickSync 안에서도 동일한 처리를 하지만, 호출 자체를 생략하지 않도록 보장한다.
+  if (isCloudSyncMutation()) {
+    runAgain = true;
+  }
 
   if (options?.immediate) {
     if (debounceTimer) {
