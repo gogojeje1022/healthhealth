@@ -23,7 +23,7 @@ import {
 } from "../lib/db";
 import { pingGemini } from "../lib/ai";
 import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
-import { persistTheme } from "../lib/theme";
+import { normalizeTheme, persistTheme } from "../lib/theme";
 import { THEME_IDS, THEME_LABELS, type ThemeId, type User } from "../types";
 import { cls } from "../lib/utils";
 
@@ -275,7 +275,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <ThemeSection currentTheme={(settings?.theme ?? "default") as ThemeId} />
+      <ThemeSection currentTheme={normalizeTheme(settings?.theme)} />
 
       <section className="card p-4">
         <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
@@ -351,10 +351,10 @@ function ThemeSection({ currentTheme }: { currentTheme: ThemeId }) {
     ThemeId,
     { app: string; card: string; border: string; brand: string }
   > = {
-    default: { app: "15 23 42", card: "30 41 59", border: "51 65 85", brand: "100 116 139" },
     green: { app: "6 26 22", card: "10 50 40", border: "18 70 56", brand: "16 185 129" },
     blue: { app: "8 22 46", card: "16 38 68", border: "28 60 100", brand: "14 165 233" },
     pink: { app: "38 14 32", card: "60 22 50", border: "100 38 80", brand: "236 72 153" },
+    yellow: { app: "36 28 8", card: "64 50 14", border: "110 86 26", brand: "234 179 8" },
   };
 
   return (

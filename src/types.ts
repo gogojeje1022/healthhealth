@@ -117,16 +117,20 @@ export interface HealthRecord {
 }
 
 /** UI 강조색 테마 — :root[data-theme="..."] 와 매핑됨. */
-export type ThemeId = "default" | "green" | "blue" | "pink";
+export type ThemeId = "green" | "blue" | "pink" | "yellow";
 
-export const THEME_IDS: ThemeId[] = ["default", "green", "blue", "pink"];
+/** 설정 페이지 노출 순서 — 사용자가 바라는 정렬 (그린→블루→핑크→옐로). */
+export const THEME_IDS: ThemeId[] = ["green", "blue", "pink", "yellow"];
 
 export const THEME_LABELS: Record<ThemeId, string> = {
-  default: "블랙",
   green: "그린",
   blue: "블루",
   pink: "핑크",
+  yellow: "옐로",
 };
+
+/** 미지정·알 수 없는 값에 대한 폴백 테마. 첫 사용자는 그린을 보게 됩니다. */
+export const DEFAULT_THEME: ThemeId = "green";
 
 export interface AppSettings {
   id: "settings";
