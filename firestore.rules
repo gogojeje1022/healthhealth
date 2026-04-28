@@ -31,6 +31,37 @@ service cloud.firestore {
       allow read:  if signedIn() && (me() == userId || isViewerWithScope(userId, 'health'));
       allow write: if signedIn() && me() == userId;
     }
+
+    // 식단 좋아요 — 식단을 볼 수 있는 사람(=owner 또는 calendar viewer)만 read.
+    // 본인 좋아요만 create/delete (문서 id == 본인 uid 강제).
+    match /users/{ownerUid}/meals/{mealId}/likes/{viewerUid} {
+      allow read: if signedIn()
+        && (me() == ownerUid || isViewerWithScope(ownerUid, 'calendar'));
+      allow create, delete: if signedIn()
+        && me() == viewerUid
+        && (me() == ownerUid || isViewerWithScope(ownerUid, 'calendar'));
+    }
+
+    // 식단 댓글 — 식단을 볼 수 있는 사람만 read/create.
+    // update 는 작성자만, delete 는 작성자 또는 식단 소유자.
+    match /users/{ownerUid}/meals/{mealId}/comments/{cid} {
+      allow read: if signedIn()
+        && (me() == ownerUid || isViewerWithScope(ownerUid, 'calendar'));
+      allow create: if signedIn()
+        && (me() == ownerUid || isViewerWithScope(ownerUid, 'calendar'))
+        && request.resource.data.authorUid == me()
+        && request.resource.data.ownerUid == ownerUid
+        && request.resource.data.mealId == mealId;
+      allow update: if signedIn()
+        && resource.data.authorUid == me()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.mealId == resource.data.mealId
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if signedIn()
+        && (resource.data.authorUid == me() || me() == ownerUid);
+    }
+
     match /users/{userId}/{document=**} {
       allow read, write: if signedIn() && me() == userId;
     }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { MealAnalysisBlock, MealPhotoBlock } from "../components/MealCard";
+import MealSocialBlock from "../components/MealSocialBlock";
 import {
   getMyViewerShare,
   permissionDeniedMessage,
@@ -124,7 +125,12 @@ export default function FriendDayPage() {
 
       {meals &&
         MEAL_SLOTS.map((slot) => (
-          <SlotSection key={slot} slot={slot} meal={mealsBySlot.get(slot)} />
+          <SlotSection
+            key={slot}
+            slot={slot}
+            meal={mealsBySlot.get(slot)}
+            ownerUid={friendUid}
+          />
         ))}
     </div>
   );
@@ -149,7 +155,15 @@ function Shell({
   );
 }
 
-function SlotSection({ slot, meal }: { slot: MealSlot; meal?: Meal }) {
+function SlotSection({
+  slot,
+  meal,
+  ownerUid,
+}: {
+  slot: MealSlot;
+  meal?: Meal;
+  ownerUid: string;
+}) {
   return (
     <section className="card overflow-hidden">
       <header className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
@@ -164,6 +178,7 @@ function SlotSection({ slot, meal }: { slot: MealSlot; meal?: Meal }) {
         ) : (
           <p className="text-xs text-slate-500">기록 없음</p>
         )}
+        {meal && <MealSocialBlock ownerUid={ownerUid} mealId={meal.id} />}
       </div>
     </section>
   );

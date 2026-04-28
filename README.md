@@ -12,6 +12,7 @@
 - ❤️ **건강 프로필** — 건강검진표 / 인바디 사진을 올리면 OCR + 100점 만점 건강 점수 자동 평가, 강점·주의·권장 코멘트 제공.
 - 👤 **프로필** — 한 명의 식단·건강 기록을 이름·색으로 표시.
 - 👥 **팔로우 공유 (Gmail)** — 인스타그램과 같은 단방향 팔로우. 이메일로 신청해 상대가 수락하면 그 사람의 기록을 내가 볼 수 있어요. 맞팔하려면 상대도 같은 절차로 신청하면 됩니다.
+- ❤️ **좋아요 / 💬 댓글** — 식단 카드마다 좋아요와 댓글. 댓글은 작성자가 수정·삭제할 수 있고, 식단 소유자는 자기 게시물에 달린 모든 댓글을 삭제할 수 있어요.
 - 📲 **PWA** — 모바일 홈 화면에 설치 가능, 오프라인 캐시 지원.
 - 🔒 **기본 클라이언트 사이드** — 본인 데이터는 브라우저 IndexedDB 에 저장되고, Firebase 로그인 시 Firestore 로 동기화됩니다. 친구 공유는 Firestore 경유(로컬에 친구 데이터를 저장하지 않음).
 
@@ -108,6 +109,8 @@ npm run deploy:firestore-rules
 - `followRequests/{id}` — 보낸 사람 또는 `toEmail == auth.token.email` 만 read/update/delete.
 - `shares/{ownerUid}_{viewerUid}` — 당사자(owner/viewer) 모두 read 가능, owner 만 create/update, 양쪽 모두 delete 가능.
 - `friendships/{fid}` — 레거시. 신규 코드는 더 이상 사용하지 않으며 read/delete 만 허용됩니다. 기존 사용자는 한 번 다시 팔로우 신청을 주고받으면 됩니다.
+- `users/{ownerUid}/meals/{mealId}/likes/{viewerUid}` — owner 또는 calendar viewer 만 read. 본인 좋아요만 create/delete (문서 id 가 본인 uid 인지 강제).
+- `users/{ownerUid}/meals/{mealId}/comments/{cid}` — owner 또는 calendar viewer 만 read/create. update 는 작성자만, delete 는 작성자 또는 식단 소유자.
 
 ### Firestore 복합 인덱스 안내
 

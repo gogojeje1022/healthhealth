@@ -1,0 +1,151 @@
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  setDoc,
+  updateDoc,
+  type Unsubscribe,
+} from "firebase/firestore";
+import type { MealComment } from "../types";
+import { getFirebaseAuth, getFirestoreDb } from "./firebaseApp";
+
+interface AuthorRef {
+  uid: string;
+  name: string;
+  photoURL?: string;
+}
+
+function requireAuthor(): AuthorRef {
+  const auth = getFirebaseAuth();
+  const u = auth.currentUser;
+  if (!u) throw new Error("Google 로그인이 필요합니다.");
+  return {
+    uid: u.uid,
+    name: u.displayName ?? u.email ?? "익명",
+    photoURL: u.photoURL ?? undefined,
+  };
+}
+
+// ---- likes -------------------------------------------------------------
+//
+// 한 사용자당 한 likes 문서. id == viewerUid 라 unique 가 보장됨.
+// 좋아요 수는 컬렉션 사이즈로 계산 (베타 규모이므로 충분).
+
+function likesCol(ownerUid: string, mealId: string) {
+  const fs = getFirestoreDb();
+  return collection(fs, "users", ownerUid, "meals", mealId, "likes");
+}
+
+function commentsCol(ownerUid: string, mealId: string) {
+  const fs = getFirestoreDb();
+  return collection(fs, "users", ownerUid, "meals", mealId, "comments");
+}
+
+/** 식단의 좋아요 누른 uid 목록을 실시간 구독. */
+export function subscribeLikes(
+  ownerUid: string,
+  mealId: string,
+  cb: (likedUids: string[]) => void,
+  onErr?: (e: unknown) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(likesCol(ownerUid, mealId)),
+    (snap) => cb(snap.docs.map((d) => d.id)),
+    (err) => {
+      console.warn("[social] likes subscribe", err);
+      onErr?.(err);
+    },
+  );
+}
+
+export async function setMyLike(
+  ownerUid: string,
+  mealId: string,
+  liked: boolean,
+): Promise<void> {
+  const me = requireAuthor();
+  const ref = doc(likesCol(ownerUid, mealId), me.uid);
+  if (liked) {
+    await setDoc(ref, { viewerUid: me.uid, createdAt: Date.now() });
+  } else {
+    await deleteDoc(ref);
+  }
+}
+
+// ---- comments ----------------------------------------------------------
+
+export function subscribeComments(
+  ownerUid: string,
+  mealId: string,
+  cb: (rows: MealComment[]) => void,
+  onErr?: (e: unknown) => void,
+): Unsubscribe {
+  // orderBy 를 별도 인덱스 없이 바로 쓰려면 단일 필드만 쓰는 게 안전.
+  // createdAt 단일 필드는 자동 인덱스 대상.
+  return onSnapshot(
+    query(commentsCol(ownerUid, mealId)),
+    (snap) => {
+      const rows = snap.docs
+        .map((d) => ({ ...(d.data() as MealComment), id: d.id }))
+        .sort((a, b) => a.createdAt - b.createdAt);
+      cb(rows);
+    },
+    (err) => {
+      console.warn("[social] comments subscribe", err);
+      onErr?.(err);
+    },
+  );
+}
+
+export async function addComment(
+  ownerUid: string,
+  mealId: string,
+  text: string,
+): Promise<MealComment> {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("댓글을 입력해 주세요.");
+  if (trimmed.length > 1000) throw new Error("댓글은 1000자 이내로 작성해 주세요.");
+  const me = requireAuthor();
+  const id = doc(commentsCol(ownerUid, mealId)).id;
+  const now = Date.now();
+  const data: MealComment = {
+    id,
+    ownerUid,
+    mealId,
+    authorUid: me.uid,
+    authorName: me.name,
+    authorPhotoURL: me.photoURL,
+    text: trimmed,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const clean: Record<string, unknown> = { ...data };
+  if (clean.authorPhotoURL === undefined) delete clean.authorPhotoURL;
+  await setDoc(doc(commentsCol(ownerUid, mealId), id), clean);
+  return data;
+}
+
+export async function editComment(
+  ownerUid: string,
+  mealId: string,
+  commentId: string,
+  text: string,
+): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("댓글을 입력해 주세요.");
+  if (trimmed.length > 1000) throw new Error("댓글은 1000자 이내로 작성해 주세요.");
+  await updateDoc(doc(commentsCol(ownerUid, mealId), commentId), {
+    text: trimmed,
+    updatedAt: Date.now(),
+  });
+}
+
+export async function deleteComment(
+  ownerUid: string,
+  mealId: string,
+  commentId: string,
+): Promise<void> {
+  await deleteDoc(doc(commentsCol(ownerUid, mealId), commentId));
+}

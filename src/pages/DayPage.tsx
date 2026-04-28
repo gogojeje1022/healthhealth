@@ -13,7 +13,9 @@ import {
 } from "../types";
 import PhotoUpload from "../components/PhotoUpload";
 import { MealPhotoBlock } from "../components/MealCard";
+import MealSocialBlock from "../components/MealSocialBlock";
 import { usePrimaryUserId } from "../hooks/usePrimaryUserId";
+import { useAuth } from "../contexts/AuthContext";
 import { formatKoDate } from "../lib/utils";
 
 export default function DayPage() {
@@ -22,6 +24,7 @@ export default function DayPage() {
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const settings = useLiveQuery(() => getSettings(), []);
   const userId = usePrimaryUserId();
+  const { user, firebaseReady } = useAuth();
 
   const meals = useLiveQuery(
     async () =>
@@ -78,6 +81,7 @@ export default function DayPage() {
             userId={userId}
             meal={mealsBySlot.get(slot)}
             apiKey={settings?.geminiApiKey}
+            ownerUid={firebaseReady ? user?.uid : undefined}
           />
         ))}
     </div>
@@ -90,9 +94,11 @@ interface SlotProps {
   userId: string;
   meal?: Meal;
   apiKey?: string;
+  /** 클라우드 동기화된 본인 Firebase UID — 좋아요/댓글 표시용. 미로그인이면 undefined */
+  ownerUid?: string;
 }
 
-function SlotSection({ slot, date, userId, meal, apiKey }: SlotProps) {
+function SlotSection({ slot, date, userId, meal, apiKey, ownerUid }: SlotProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [searchParams] = useSearchParams();
 
@@ -222,6 +228,10 @@ function SlotSection({ slot, date, userId, meal, apiKey }: SlotProps) {
             variant="ghost"
             square
           />
+        )}
+
+        {ownerUid && meal && (
+          <MealSocialBlock ownerUid={ownerUid} mealId={meal.id} />
         )}
       </div>
     </section>

@@ -189,6 +189,23 @@ export interface FollowRequest {
 }
 
 /**
+ * /users/{ownerUid}/meals/{mealId}/comments/{commentId}
+ *
+ * 식단 댓글. 작성자(authorUid) 가 수정·삭제 가능, 식단 소유자(ownerUid) 도 삭제 가능.
+ */
+export interface MealComment {
+  id: string;
+  ownerUid: string;
+  mealId: string;
+  authorUid: string;
+  authorName: string;
+  authorPhotoURL?: string;
+  text: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
  * /shares/{ownerUid}_{viewerUid}
  *
  * 한 방향당 한 문서. owner 의 데이터 중 scope 에 해당하는 부분이 viewer 에게 보입니다.
