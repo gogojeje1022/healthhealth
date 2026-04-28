@@ -54,13 +54,7 @@ export default function HealthPage() {
     await db.health.put(rec);
     afterUserDataMutation();
     if (settings?.geminiApiKey) {
-      runAnalysis(
-        id,
-        photo,
-        pickedType,
-        settings.geminiApiKey,
-        settings.geminiApiKeyBackup,
-      );
+      runAnalysis(id, photo, pickedType, settings.geminiApiKey);
     }
   }
 
@@ -69,15 +63,12 @@ export default function HealthPage() {
     photo: Blob,
     type: HealthRecordType,
     key: string,
-    backupKey?: string,
   ) {
     try {
       const result = await analyzeHealthImage(
         key,
         photo,
         HEALTH_TYPE_LABELS[type],
-        undefined,
-        backupKey,
       );
       const cur = await db.health.get(id);
       if (!cur) return;
@@ -117,13 +108,7 @@ export default function HealthPage() {
       updatedAt: Date.now(),
     });
     afterUserDataMutation();
-    runAnalysis(
-      rec.id,
-      rec.photo,
-      rec.type,
-      settings.geminiApiKey,
-      settings.geminiApiKeyBackup,
-    );
+    runAnalysis(rec.id, rec.photo, rec.type, settings.geminiApiKey);
   }
 
   async function removeRecord(rec: HealthRecord) {

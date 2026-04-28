@@ -66,7 +66,7 @@ export async function patchSettings(patch: Partial<AppSettings>): Promise<void> 
   ) {
     next.appSettingsUpdatedAt = Date.now();
   }
-  if ("geminiApiKey" in patch || "geminiApiKeyBackup" in patch) {
+  if ("geminiApiKey" in patch) {
     next.geminiSettingsUpdatedAt = Date.now();
   }
   await db.settings.put(next);

@@ -8,7 +8,6 @@ export default function OnboardingPage() {
   const [displayName, setDisplayName] = useState("");
   const [color, setColor] = useState(() => nextColor([]));
   const [apiKey, setApiKey] = useState("");
-  const [apiKeyBackup, setApiKeyBackup] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function finish() {
@@ -35,7 +34,6 @@ export default function OnboardingPage() {
         onboarded: true,
         activeUserId: id,
         geminiApiKey: apiKey.trim() || undefined,
-        geminiApiKeyBackup: apiKeyBackup.trim() || undefined,
       });
       window.location.replace(`${window.location.origin}${import.meta.env.BASE_URL}#/`);
     } catch (e) {
@@ -106,7 +104,7 @@ export default function OnboardingPage() {
 
       <section className="mb-8">
         <h2 className="mb-2 text-sm font-semibold text-slate-300">
-          Gemini API 키 <span className="text-slate-500">(선택)</span>
+          Google Gemini 키 <span className="text-slate-500">(선택)</span>
         </h2>
         <p className="mb-3 text-xs text-slate-500">
           <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-brand-400 underline">
@@ -114,19 +112,10 @@ export default function OnboardingPage() {
           </a>
           에서 발급 · 나중에 설정에서도 가능
         </p>
-        <label className="mb-1 block text-[11px] text-slate-500">주 API 키</label>
         <input
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="AIzaSy..."
-          className="input mb-3"
-          autoComplete="off"
-        />
-        <label className="mb-1 block text-[11px] text-slate-500">보조 API 키 (선택)</label>
-        <input
-          value={apiKeyBackup}
-          onChange={(e) => setApiKeyBackup(e.target.value)}
-          placeholder="주 키를 못 쓸 때만 자동 시도"
           className="input"
           autoComplete="off"
         />

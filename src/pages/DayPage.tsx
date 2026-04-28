@@ -78,7 +78,6 @@ export default function DayPage() {
             userId={userId}
             meal={mealsBySlot.get(slot)}
             apiKey={settings?.geminiApiKey}
-            apiKeyBackup={settings?.geminiApiKeyBackup}
           />
         ))}
     </div>
@@ -91,10 +90,9 @@ interface SlotProps {
   userId: string;
   meal?: Meal;
   apiKey?: string;
-  apiKeyBackup?: string;
 }
 
-function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup }: SlotProps) {
+function SlotSection({ slot, date, userId, meal, apiKey }: SlotProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [searchParams] = useSearchParams();
 
@@ -132,7 +130,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup }: SlotPro
         };
     await db.meals.put(base);
     if (apiKey) {
-      runAnalysis(id, photo, apiKey, apiKeyBackup);
+      runAnalysis(id, photo, apiKey);
     }
   }
 
@@ -140,10 +138,9 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup }: SlotPro
     id: string,
     photo: Blob,
     key: string,
-    backupKey?: string,
   ) {
     try {
-      const result = await analyzeMealImage(key, photo, undefined, backupKey);
+      const result = await analyzeMealImage(key, photo);
       const cur = await db.meals.get(id);
       if (!cur) return;
       await db.meals.put({
@@ -179,7 +176,7 @@ function SlotSection({ slot, date, userId, meal, apiKey, apiKeyBackup }: SlotPro
       updatedAt: Date.now(),
     });
     afterUserDataMutation();
-    runAnalysis(meal.id, meal.photo, apiKey, apiKeyBackup);
+    runAnalysis(meal.id, meal.photo, apiKey);
   }
 
   async function removeMeal() {

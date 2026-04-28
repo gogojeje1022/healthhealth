@@ -121,8 +121,6 @@ export interface HealthRecord {
 export interface AppSettings {
   id: "settings";
   geminiApiKey?: string;
-  /** 주 키가 429 등 쿼터 한도일 때만 사용 (별도 프로젝트에서 발급한 키 권장) */
-  geminiApiKeyBackup?: string;
   /** 활성 사용자 ID (마지막 선택) */
   activeUserId?: string;
   /** AI 모델 */

@@ -45,12 +45,11 @@ export default function SettingsPage() {
   const userCount = useLiveQuery(() => db.users.count(), []);
 
   const [apiKey, setApiKey] = useState("");
-  const [apiKeyBackup, setApiKeyBackup] = useState("");
   const [show, setShow] = useState(false);
   const [pingState, setPingState] = useState<
     | { kind: "idle" }
     | { kind: "busy" }
-    | { kind: "ok"; model: string; usedBackup: boolean }
+    | { kind: "ok"; model: string }
     | { kind: "fail"; msg: string }
   >({ kind: "idle" });
   const [keySavedFlash, setKeySavedFlash] = useState(false);
@@ -62,15 +61,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (settings?.geminiApiKey) setApiKey(settings.geminiApiKey);
-    if (settings?.geminiApiKeyBackup !== undefined) {
-      setApiKeyBackup(settings.geminiApiKeyBackup ?? "");
-    }
-  }, [settings?.geminiApiKey, settings?.geminiApiKeyBackup]);
+  }, [settings?.geminiApiKey]);
 
   async function saveKey() {
     await patchSettings({
       geminiApiKey: apiKey.trim() || undefined,
-      geminiApiKeyBackup: apiKeyBackup.trim() || undefined,
     });
     setPingState({ kind: "idle" });
     setKeySavedFlash(true);
@@ -79,12 +74,8 @@ export default function SettingsPage() {
   async function testKey() {
     setPingState({ kind: "busy" });
     try {
-      const result = await pingGemini(
-        apiKey.trim(),
-        undefined,
-        apiKeyBackup.trim() || undefined,
-      );
-      setPingState({ kind: "ok", model: result.model, usedBackup: result.usedBackup });
+      const result = await pingGemini(apiKey.trim());
+      setPingState({ kind: "ok", model: result.model });
     } catch (e) {
       setPingState({
         kind: "fail",
@@ -205,7 +196,6 @@ export default function SettingsPage() {
         </p>
 
         <div className="space-y-2">
-          <label className="mb-1 block text-xs text-slate-400">주 API 키</label>
           <div className="relative">
             <input
               type={show ? "text" : "password"}
@@ -223,21 +213,6 @@ export default function SettingsPage() {
             >
               {show ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">
-              보조 API 키 <span className="text-slate-600">(선택)</span>
-            </label>
-            <input
-              type={show ? "text" : "password"}
-              value={apiKeyBackup}
-              onChange={(e) => setApiKeyBackup(e.target.value)}
-              placeholder="주 키가 막힐 때만 자동으로 이어서 시도"
-              className="input"
-              autoComplete="off"
-              spellCheck={false}
-            />
           </div>
 
           <div className="flex gap-2">
@@ -265,11 +240,6 @@ export default function SettingsPage() {
               <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] text-emerald-200">
                 {pingState.model}
               </span>
-              {pingState.usedBackup && (
-                <span className="text-[11px] text-amber-300">
-                  (주 키 한도 초과 → 보조 키로 성공)
-                </span>
-              )}
             </p>
           )}
           {pingState.kind === "fail" && (

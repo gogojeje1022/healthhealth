@@ -20,27 +20,9 @@ function formatGeminiFailure(prefix: string, e: unknown): string {
     /\b429\b/.test(raw) ||
     /quota|rate limit|exceeded your current quota/i.test(raw);
   if (quota) {
-    return `${prefix}: Google API 무료(또는 현재 요금제) 한도를 넘었습니다(429). 한도는 사진 파일 크기보다 하루·분당 요청 횟수와 토큰으로 정해지는 경우가 많습니다. 몇 분~몇 시간 뒤 다시 시도하거나, 설정에서 모델을 gemini-2.5-flash-lite 등(AI Studio 비율 제한에 나온 모델)으로 맞춰 보세요. 사용량: https://ai.dev/rate-limit · 한도 안내: https://ai.google.dev/gemini-api/docs/rate-limits`;
+    return `${prefix}: Google API 무료(또는 현재 요금제) 한도를 넘었습니다(429). 한도는 사진 파일 크기보다 하루·분당 요청 횟수와 토큰으로 정해지는 경우가 많습니다. 몇 분~몇 시간 뒤 다시 시도해 주세요. 사용량: https://ai.dev/rate-limit · 한도 안내: https://ai.google.dev/gemini-api/docs/rate-limits`;
   }
   return `${prefix}: ${raw}`;
-}
-
-/** 주 키 한도 초과 시에만 대체 키로 재시도할지 판별 */
-function isQuotaLikeError(e: unknown): boolean {
-  const parts: string[] = [];
-  if (e instanceof AIError) {
-    parts.push(e.message);
-    if (e.cause instanceof Error) parts.push(e.cause.message);
-  } else if (e instanceof Error) {
-    parts.push(e.message);
-  } else {
-    parts.push(String(e));
-  }
-  const raw = parts.join(" ");
-  return (
-    /\b429\b/.test(raw) ||
-    /quota|rate limit|exceeded your current quota|resource_exhausted/i.test(raw)
-  );
 }
 
 export class AIError extends Error {
@@ -154,8 +136,6 @@ export async function analyzeMealImage(
   apiKey: string,
   image: Blob,
   modelName?: string,
-  /** 429 등 쿼터 한도일 때만 한 번 더 시도 */
-  backupApiKey?: string,
 ): Promise<MealAnalysis> {
   if (!apiKey.trim()) {
     throw new AIError("Gemini API 키가 설정되지 않았습니다. 설정 화면에서 입력해주세요.");
@@ -165,16 +145,7 @@ export async function analyzeMealImage(
     quality: 0.78,
     mimeType: "image/jpeg",
   });
-  const primary = apiKey.trim();
-  const backup = backupApiKey?.trim();
-  try {
-    return await analyzeMealImageOnce(primary, forApi, modelName);
-  } catch (e1) {
-    if (!backup || backup === primary || !isQuotaLikeError(e1)) {
-      throw e1;
-    }
-    return await analyzeMealImageOnce(backup, forApi, modelName);
-  }
+  return await analyzeMealImageOnce(apiKey.trim(), forApi, modelName);
 }
 
 // ---------- 건강기록 분석 ----------
@@ -259,7 +230,6 @@ export async function analyzeHealthImage(
   image: Blob,
   recordType: string,
   modelName?: string,
-  backupApiKey?: string,
 ): Promise<HealthAnalysis> {
   if (!apiKey.trim()) {
     throw new AIError("Gemini API 키가 설정되지 않았습니다. 설정 화면에서 입력해주세요.");
@@ -269,16 +239,7 @@ export async function analyzeHealthImage(
     quality: 0.82,
     mimeType: "image/jpeg",
   });
-  const primary = apiKey.trim();
-  const backup = backupApiKey?.trim();
-  try {
-    return await analyzeHealthImageOnce(primary, forApi, recordType, modelName);
-  } catch (e1) {
-    if (!backup || backup === primary || !isQuotaLikeError(e1)) {
-      throw e1;
-    }
-    return await analyzeHealthImageOnce(backup, forApi, recordType, modelName);
-  }
+  return await analyzeHealthImageOnce(apiKey.trim(), forApi, recordType, modelName);
 }
 
 // ---------- API 키 검증 ----------
@@ -299,29 +260,16 @@ async function pingGeminiOnce(apiKey: string, modelName?: string): Promise<void>
 export interface PingResult {
   /** 실제 호출에 사용된 Gemini 모델명 */
   model: string;
-  /** 주 키가 한도(429 등)로 막혀 보조 키로 성공한 경우 true */
-  usedBackup: boolean;
 }
 
 export async function pingGemini(
   apiKey: string,
   modelName?: string,
-  backupApiKey?: string,
 ): Promise<PingResult> {
   if (!apiKey.trim()) {
     throw new AIError("Gemini API 키가 비어 있습니다.");
   }
-  const primary = apiKey.trim();
-  const backup = backupApiKey?.trim();
   const model = modelName || DEFAULT_MODEL;
-  try {
-    await pingGeminiOnce(primary, model);
-    return { model, usedBackup: false };
-  } catch (e1) {
-    if (!backup || backup === primary || !isQuotaLikeError(e1)) {
-      throw e1;
-    }
-    await pingGeminiOnce(backup, model);
-    return { model, usedBackup: true };
-  }
+  await pingGeminiOnce(apiKey.trim(), model);
+  return { model };
 }

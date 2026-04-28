@@ -42,7 +42,6 @@ type PublicSettingsDoc = {
 /** 본인 Firebase UID 하위만 접근 — Gemini 키(계정별) */
 type PrivateSettingsDoc = {
   geminiApiKey?: string;
-  geminiApiKeyBackup?: string;
   updatedAt: number;
 };
 
@@ -336,11 +335,11 @@ async function pushPrivateSettings(uid: string, s: AppSettings): Promise<void> {
   const fs = getFirestoreDb();
   const updatedAt = s.geminiSettingsUpdatedAt ?? Date.now();
   const primary = s.geminiApiKey?.trim();
-  const backup = s.geminiApiKeyBackup?.trim();
+  // geminiApiKeyBackup 은 더 이상 사용하지 않음 — 기존 사용자의 클라우드 잔여 필드를 정리.
   await setDoc(doc(fs, "users", uid, "config", "private"), {
     updatedAt,
     geminiApiKey: primary ? primary : deleteField(),
-    geminiApiKeyBackup: backup ? backup : deleteField(),
+    geminiApiKeyBackup: deleteField(),
   });
 }
 
@@ -411,7 +410,6 @@ export async function syncCloudWithLocal(): Promise<void> {
       localSettings = {
         ...localSettings,
         geminiApiKey: remotePrivate.geminiApiKey || undefined,
-        geminiApiKeyBackup: remotePrivate.geminiApiKeyBackup || undefined,
         geminiSettingsUpdatedAt: remotePrivate.updatedAt,
         id: SETTINGS_KEY,
       };
