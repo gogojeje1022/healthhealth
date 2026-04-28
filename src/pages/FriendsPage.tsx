@@ -199,36 +199,57 @@ interface FriendRow {
   incoming?: Share;
 }
 
+/**
+ * 두 종류 share 를 친구 1명당 한 줄로 모읍니다.
+ *
+ * 용어 주의(헷갈리기 쉬움):
+ * - 라이브러리의 `subscribeOutgoingShares` 가 돌려주는 `outShares` = "내가 *신청자(viewer)* 인 share"
+ *   = **내가 팔로우 중인 친구** → 친구 정보는 `ownerXxx` 필드에 들어 있음.
+ * - 라이브러리의 `subscribeIncomingShares` 가 돌려주는 `inShares` = "내가 *수신자(owner)* 인 share"
+ *   = **나를 팔로우 중인 친구** → 친구 정보는 `viewerXxx` 필드에 들어 있음.
+ *
+ * 한편 UI 의 `FriendRow.outgoing` / `incoming` 은
+ * - `outgoing` = 내가 owner 인 share (= 내가 그 친구에게 공개)
+ * - `incoming` = 내가 viewer 인 share (= 그 친구가 내게 공개, 내가 봄)
+ * 이라 라이브러리 변수명과 정반대 의미입니다.
+ */
 function combineRows(outShares: Share[], inShares: Share[]): FriendRow[] {
   const map = new Map<string, FriendRow>();
+
+  // outShares: 내가 viewer · 친구가 owner → 친구 정보는 owner* 필드.
+  // FriendRow 관점에서는 "내가 보는 share" 이므로 incoming.
   for (const s of outShares) {
-    const other = s.viewerUid;
+    const other = s.ownerUid;
     map.set(other, {
       otherUid: other,
-      name: s.viewerName,
-      email: s.viewerEmail,
-      photo: s.viewerPhotoURL,
-      outgoing: s,
+      name: s.ownerName,
+      email: s.ownerEmail,
+      photo: s.ownerPhotoURL,
+      incoming: s,
     });
   }
+
+  // inShares: 내가 owner · 친구가 viewer → 친구 정보는 viewer* 필드.
+  // FriendRow 관점에서는 "내가 공개하는 share" 이므로 outgoing.
   for (const s of inShares) {
-    const other = s.ownerUid;
+    const other = s.viewerUid;
     const cur = map.get(other);
     if (cur) {
-      cur.incoming = s;
-      cur.name = s.ownerName || cur.name;
-      cur.email = s.ownerEmail || cur.email;
-      cur.photo = s.ownerPhotoURL || cur.photo;
+      cur.outgoing = s;
+      cur.name = s.viewerName || cur.name;
+      cur.email = s.viewerEmail || cur.email;
+      cur.photo = s.viewerPhotoURL || cur.photo;
     } else {
       map.set(other, {
         otherUid: other,
-        name: s.ownerName,
-        email: s.ownerEmail,
-        photo: s.ownerPhotoURL,
-        incoming: s,
+        name: s.viewerName,
+        email: s.viewerEmail,
+        photo: s.viewerPhotoURL,
+        outgoing: s,
       });
     }
   }
+
   return [...map.values()].sort(
     (a, b) =>
       (b.outgoing?.updatedAt ?? b.incoming?.updatedAt ?? 0) -
