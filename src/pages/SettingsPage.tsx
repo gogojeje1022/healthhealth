@@ -50,7 +50,7 @@ export default function SettingsPage() {
   const [pingState, setPingState] = useState<
     | { kind: "idle" }
     | { kind: "busy" }
-    | { kind: "ok" }
+    | { kind: "ok"; model: string; usedBackup: boolean }
     | { kind: "fail"; msg: string }
   >({ kind: "idle" });
   const [keySavedFlash, setKeySavedFlash] = useState(false);
@@ -79,12 +79,12 @@ export default function SettingsPage() {
   async function testKey() {
     setPingState({ kind: "busy" });
     try {
-      await pingGemini(
+      const result = await pingGemini(
         apiKey.trim(),
         undefined,
         apiKeyBackup.trim() || undefined,
       );
-      setPingState({ kind: "ok" });
+      setPingState({ kind: "ok", model: result.model, usedBackup: result.usedBackup });
     } catch (e) {
       setPingState({
         kind: "fail",
@@ -258,8 +258,18 @@ export default function SettingsPage() {
           </div>
 
           {pingState.kind === "ok" && (
-            <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <CheckCircle2 size={14} /> 연결됨
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-emerald-400">
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 size={14} /> 연결됨
+              </span>
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] text-emerald-200">
+                {pingState.model}
+              </span>
+              {pingState.usedBackup && (
+                <span className="text-[11px] text-amber-300">
+                  (주 키 한도 초과 → 보조 키로 성공)
+                </span>
+              )}
             </p>
           )}
           {pingState.kind === "fail" && (

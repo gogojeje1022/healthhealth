@@ -11,7 +11,7 @@ import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai"
 import { blobToBase64, compressImage } from "./image";
 
 /** AI Studio 무료 한도 표가 보통 2.5 Flash Lite 기준이므로, 2.0 계열과 쿼터 풀이 다를 수 있음 */
-const DEFAULT_MODEL = "gemini-2.5-flash-lite";
+export const DEFAULT_MODEL = "gemini-2.5-flash-lite";
 
 /** 429 등 Google 쿼터/속도 제한 시 사용자 안내 */
 function formatGeminiFailure(prefix: string, e: unknown): string {
@@ -296,22 +296,32 @@ async function pingGeminiOnce(apiKey: string, modelName?: string): Promise<void>
   }
 }
 
+export interface PingResult {
+  /** 실제 호출에 사용된 Gemini 모델명 */
+  model: string;
+  /** 주 키가 한도(429 등)로 막혀 보조 키로 성공한 경우 true */
+  usedBackup: boolean;
+}
+
 export async function pingGemini(
   apiKey: string,
   modelName?: string,
   backupApiKey?: string,
-): Promise<void> {
+): Promise<PingResult> {
   if (!apiKey.trim()) {
     throw new AIError("Gemini API 키가 비어 있습니다.");
   }
   const primary = apiKey.trim();
   const backup = backupApiKey?.trim();
+  const model = modelName || DEFAULT_MODEL;
   try {
-    await pingGeminiOnce(primary, modelName);
+    await pingGeminiOnce(primary, model);
+    return { model, usedBackup: false };
   } catch (e1) {
     if (!backup || backup === primary || !isQuotaLikeError(e1)) {
       throw e1;
     }
-    await pingGeminiOnce(backup, modelName);
+    await pingGeminiOnce(backup, model);
+    return { model, usedBackup: true };
   }
 }
