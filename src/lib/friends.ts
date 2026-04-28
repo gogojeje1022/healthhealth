@@ -34,6 +34,17 @@ export function normalizeEmail(s: string): string {
   return s.trim().toLowerCase();
 }
 
+/**
+ * 팔로우 신청 대상은 Gmail 만 허용합니다.
+ * (앱 자체가 Google Sign-In 만 지원하는데, 비-Gmail 도메인은 가입하지 못하므로
+ *  팔로우를 신청해 두어도 끝내 수락될 수 없습니다 → 입력 단계에서 차단)
+ */
+export function isGmailAddress(email: string): boolean {
+  // 단순 endsWith 가 아니라 "@gmail.com" 한 번만 등장하는지까지 확인.
+  const e = normalizeEmail(email);
+  return /^[^\s@]+@gmail\.com$/.test(e);
+}
+
 /** owner-viewer 한 방향당 한 문서 — `${ownerUid}_${viewerUid}`. */
 export function shareIdFor(ownerUid: string, viewerUid: string): string {
   return `${ownerUid}_${viewerUid}`;
@@ -91,6 +102,8 @@ export async function sendFollowRequest(
   const myEmail = requireEmail(me);
   const toEmail = normalizeEmail(toEmailRaw);
   if (!toEmail) throw new Error("이메일을 입력해 주세요.");
+  if (!isGmailAddress(toEmail))
+    throw new Error("Gmail 주소(@gmail.com)만 신청할 수 있어요.");
   if (toEmail === myEmail) throw new Error("본인에게는 신청할 수 없어요.");
   if (isEmptyScope(requestedScope))
     throw new Error("보고 싶은 범위를 하나 이상 선택해 주세요.");

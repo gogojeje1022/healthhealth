@@ -20,6 +20,7 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   acceptFollowRequest,
   cancelFollowRequest,
+  isGmailAddress,
   rejectFollowRequest,
   removeShare,
   sendFollowRequest,
@@ -293,6 +294,10 @@ function SendRequestCard() {
   const [lastSentLink, setLastSentLink] = useState<string | null>(null);
   const [lastSentEmail, setLastSentEmail] = useState<string | null>(null);
 
+  const trimmed = email.trim();
+  // 빈 입력 단계에서는 빨간 경고 띄우지 않고, 무언가 입력했을 때만 형식 검사.
+  const gmailInvalid = trimmed.length > 0 && !isGmailAddress(trimmed);
+
   async function submit() {
     setErr(null);
     setBusy(true);
@@ -316,7 +321,8 @@ function SendRequestCard() {
         이메일로 팔로우 신청
       </h3>
       <p className="text-[11px] text-slate-400">
-        상대가 수락하면 그 사람의 기록을 내가 볼 수 있어요. (인스타그램 팔로우와 같은 방식)
+        상대가 수락하면 그 사람의 기록을 내가 볼 수 있어요. (인스타그램 팔로우와 같은 방식 ·
+        <span className="text-slate-300"> Gmail 주소만 가능</span>)
       </p>
       <input
         type="email"
@@ -324,15 +330,27 @@ function SendRequestCard() {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="friend@gmail.com"
         autoComplete="email"
-        className="input"
+        inputMode="email"
+        className={cls("input", gmailInvalid && "border-rose-500/60 focus:border-rose-500")}
+        aria-invalid={gmailInvalid || undefined}
       />
+      {gmailInvalid && (
+        <p className="-mt-1 text-[11px] text-rose-300">
+          Gmail 주소(@gmail.com)만 신청할 수 있어요.
+        </p>
+      )}
       <div className="flex flex-col gap-2">
         <p className="text-xs text-slate-400">이 친구의 어떤 기록을 보고 싶나요?</p>
         <ScopeCheckboxes value={scope} onChange={setScope} />
       </div>
       <button
         onClick={submit}
-        disabled={busy || !email.trim() || (!scope.calendar && !scope.health)}
+        disabled={
+          busy ||
+          !trimmed ||
+          gmailInvalid ||
+          (!scope.calendar && !scope.health)
+        }
         className="btn-primary w-full py-2.5 text-sm disabled:opacity-60"
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
